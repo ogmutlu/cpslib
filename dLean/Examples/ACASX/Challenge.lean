@@ -12,12 +12,6 @@ theorem immediate_safe :
           NoNMAC rp hp res.r res.h ∧
             Limpl rp hp rv alo res.r res.h res.v res.w res.vlo := sorry
 
-/-- STTT17 Lemma 1, also in `acasx.kyx`. -/
-theorem immediate_regions_equivalent :
-    ∀ rp hp rv alo r h v w vlo,
-      Bounds rp hp rv alo → Sense w →
-        (Lexpl rp hp rv alo r h v w vlo ↔ Limpl rp hp rv alo r h v w vlo) := sorry
-
 /-- STTT17 Theorem 2, with the stronger postcondition (+ Dimpl) from
 `safe_delay_implicit.kyx` -/
 theorem delayed_safe :
@@ -28,13 +22,6 @@ theorem delayed_safe :
           NoNMAC rp hp res.r res.h ∧
             Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d := sorry
 
-/-- STTT17 Lemma 2 -/
-theorem delayed_regions_equivalent :
-    ∀ rp hp rv alo ad r h v w vlo d,
-      Bounds rp hp rv alo → 0 ≤ ad → Sense w →
-        (Dexpl rp hp rv alo ad r h v w vlo d ↔ Dimpl rp hp rv alo ad r h v w vlo d) :=
-  sorry
-
 /-- STTT17 Theorem 3, also in `acasxtwosided.kyx`. -/
 theorem two_sided_safe :
     ∀ rp hp rv alo aup r h v w vlo vup,
@@ -42,13 +29,6 @@ theorem two_sided_safe :
       Cimpl rp hp rv alo aup r h v w vlo vup →
         ∀ res ∈ SetM.run (twoSided rp hp rv alo aup r h v w vlo vup),
           NoNMAC rp hp res.r res.h := sorry
-
-/-- STTT17 Lemma 3 -/
-theorem two_sided_regions_equivalent :
-    ∀ rp hp rv alo aup r h v w vlo vup,
-      Bounds rp hp rv alo → alo ≤ aup → Sense w →
-        (Cexpl rp hp rv alo aup r h v w vlo vup ↔
-          Cimpl rp hp rv alo aup r h v w vlo vup) := sorry
 
 /-- STTT17 Theorem 4, with weaker precondition (`0 < aup` instead of `alo ≤ aup`) and
 stronger postcondition (+ Sense, + CimplBounded), following `bounded_implicit.kyx`.

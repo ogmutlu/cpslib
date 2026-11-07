@@ -62,69 +62,6 @@ def Uimpl (rp hp rv aup r h v w vup : ℝ) : Prop :=
 def Cimpl (rp hp rv alo aup r h v w vlo vup : ℝ) : Prop :=
   Limpl rp hp rv alo r h v w vlo ∨ Uimpl rp hp rv aup r h v w vup
 
-/-- Fig. 3 : L⁻¹_expl -/
-@[reducible]
-def Lexpl (rp hp rv alo r h v w vlo : ℝ) : Prop :=
-  let m := min 0 (w * v)
-  let M := maxI v w vlo
-  (0 ≤ w * vlo →
-    -- case1 -> bound1
-    ((-rp ≤ r ∧ r < -rp - rv * m / alo) →
-      w * rv ^ 2 * h < alo / 2 * (r + rp) ^ 2 + w * rv * v * (r + rp) - rv ^ 2 * hp) ∧
-    -- case2 -> bound2
-    ((-rp - rv * m / alo ≤ r ∧ r ≤ rp - rv * m / alo) →
-      w * h < -(m ^ 2) / (2 * alo) - hp) ∧
-    -- case3 -> bound3
-    ((rp - rv * m / alo < r ∧ r ≤ rp + rv * M / alo) →
-      w * rv ^ 2 * h < alo / 2 * (r - rp) ^ 2 + w * rv * v * (r - rp) - rv ^ 2 * hp) ∧
-    -- case4 -> bound4
-    (rp + rv * M / alo < r →
-      rv = 0 ∨ w * rv * h < w * vlo * (r - rp) - rv * M ^ 2 / (2 * alo) - rv * hp)
-  ) ∧
-  (w * vlo < 0 →
-    -- case5 -> bound5
-    ((-rp ≤ r ∧ r < -rp + rv * M / alo) →
-      w * rv ^ 2 * h < alo / 2 * (r + rp) ^ 2 + w * rv * v * (r + rp) - rv ^ 2 * hp) ∧
-    -- case6 -> bound6
-    (-rp + rv * M / alo ≤ r →
-      (rv = 0 ∧ rp < r) ∨
-        w * rv * h < w * vlo * (r + rp) - rv * M ^ 2 / (2 * alo) - rv * hp)
-  )
-
-/-- Fig. 8 : U⁻¹_expl -/
-@[reducible]
-def Uexpl (rp hp rv aup r h v w vup : ℝ) : Prop :=
-  let M := maxI v w vup
-  let V := max (w * vup) (w * v)
-  (0 < V →
-    -- case10 -> bound10
-    ((-rp ≤ r ∧ r ≤ rp) → hp < w * h) ∧
-    -- case11 -> bound11
-    ((rp < r ∧ r ≤ rp + rv * M / aup) →
-      aup / 2 * (r - rp) ^ 2 + w * rv * v * (r - rp) + rv ^ 2 * hp < w * rv ^ 2 * h) ∧
-    -- case12 -> bound12
-    ((-rp ≤ r ∧ r < -rp + rv * M / aup) →
-      aup / 2 * (r + rp) ^ 2 + w * rv * v * (r + rp) + rv ^ 2 * hp < w * rv ^ 2 * h) ∧
-    -- case13 -> bound13
-    (-rp + rv * M / aup ≤ r →
-      (rv = 0 ∧ rp < r) ∨ V * (r + rp) - rv * M ^ 2 / (2 * aup) + rv * hp < w * rv * h)
-  ) ∧
-  (V ≤ 0 →
-    -- case10 -> bound10
-    ((-rp ≤ r ∧ r ≤ rp) → hp < w * h) ∧
-    -- case11 -> bound11
-    ((rp < r ∧ r ≤ rp + rv * M / aup) →
-      aup / 2 * (r - rp) ^ 2 + w * rv * v * (r - rp) + rv ^ 2 * hp < w * rv ^ 2 * h) ∧
-    -- case14 -> bound14
-    (rp + rv * M / aup < r →
-      rv = 0 ∨ V * (r - rp) - rv * M ^ 2 / (2 * aup) + rv * hp < w * rv * h)
-  )
-
-/-- Fig. 8 : C⁻¹_expl -/
-@[reducible]
-def Cexpl (rp hp rv alo aup r h v w vlo vup : ℝ) : Prop :=
-  Lexpl rp hp rv alo r h v w vlo ∨ Uexpl rp hp rv aup r h v w vup
-
 /-- Fig. 5 : Dᵈ_impl, follows `safe_delay_implicit.kyx`.
 the paper (fixed version: `vd` instead of `v` inside `A`) -/
 @[reducible]
@@ -136,22 +73,6 @@ def Dimpl (rp hp rv alo ad r h v w vlo d : ℝ) : Prop :=
           A alo (t - max 0 d) (hn - hd) vd w vlo)
       ) →
       rp < |r - rn| ∨ w * (h - hn) < -hp
-
-/-- Fig. 5 : Dᵈ_expl -/
-@[reducible]
-def Dexpl (rp hp rv alo ad r h v w vlo d : ℝ) : Prop :=
-  let rd := rv * max 0 d
-  let vd := v - w * ad * max 0 d
-  let hd := -(w * ad) / 2 * max 0 d ^ 2 + v * max 0 d
-  -- case7 -> bound7
-  ((-rp ≤ r ∧ r ≤ rp) → w * h < -hp) ∧
-  -- case8 -> bound8
-  ((rp < r ∧ r ≤ rd + rp) →
-    w * rv ^ 2 * h < -ad / 2 * (r - rp) ^ 2 + w * rv * v * (r - rp) - rv ^ 2 * hp) ∧
-  -- case9 -> bound9
-  ((-rp ≤ r ∧ r < rd - rp) →
-    w * rv ^ 2 * h < -ad / 2 * (r + rp) ^ 2 + w * rv * v * (r + rp) - rv ^ 2 * hp) ∧
-  Lexpl rp hp rv alo (r - rd) (h - hd) vd w vlo
 
 /-- Fig. 10 : Lε_impl (equivalent to paper for `t=0`), follows `bounded_implicit.kyx`
 (fixed typo from paper: `hp` to `-hp`) -/
@@ -191,7 +112,9 @@ def upperEndpoint (aup τ hn vn v w vup : ℝ) : Prop :=
     hn = w * max (w * vup) (w * v) * τ - w * maxI v w vup ^ 2 / (2 * aup) ∧
     vn = w * max (w * vup) (w * v))
 
-/-- Fig. 12 : Csafeable(ε)_impl (equivalent to paper for `t=0`) -/
+/-- Fig. 12 : Csafeable(ε)_impl, following `condImplSafeable` in `AcasXSafeable.scala`.
+The upper follow-up uses reversed sense and `vupEx`; upper terminal speed is normalized
+using `Sense w`. The paper is specialized to `t=0` and prints different endpoint heights. -/
 @[reducible]
 def CimplSafeable (rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx : ℝ) : Prop :=
   (LimplBounded rp hp rv alo tl t r h v w vlo ∧

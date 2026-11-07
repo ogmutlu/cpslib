@@ -1,13 +1,15 @@
 {
-    "challenge_module": "Challenge",
-    "solution_module": "Solution",
+    "challenge_module": "dLean.Examples.FM09.Challenge",
+    "solution_module": "dLean.Examples.FM09.Proof",
     "theorem_names": [
-        "FM09.ntrm_safe", 
-        "FM09.ntrm_many_safe", 
-        "FM09.ftrm_end_safe", 
-        "FM09.ftrm_throughout_safe", 
-        "FM09.ftrm_modified_end_safe", 
-        "FM09.ftrm_modified_throughout_safe"],
-    "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
+        "FM09.ntrm_many_safe",
+        "FM09.ftrm_many_end_safe",
+        "FM09.ftrm_many_throughout_safe"
+    ],
+    "permitted_axioms": [
+        "propext",
+        "Quot.sound",
+        "Classical.choice"
+    ],
     "enable_nanoda": false
 }

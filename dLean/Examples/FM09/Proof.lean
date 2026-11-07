@@ -9,6 +9,44 @@ set_option experimental.intrinsic true
 
 namespace FM09
 
+namespace Defs
+
+/-- Flight equations `F(ω)` for the first aircraft (Section 4.1). -/
+@[simp] def F (ω : ℝ) := fun ((_x : Vec2), d) => (d, ω • perp d)
+
+/-- Flight equations `G(ρ)` for the second aircraft (Section 4.1). -/
+@[simp] def G (ρ : ℝ) := fun ((_y : Vec2), e) => (e, ρ • perp e)
+
+/-- Joint flight ODE, Section 4.1.
+Position vectors x, y
+Angular speeds ω, ρ
+Linear velocity vectors d, e
+-/
+@[simp] def flight (ω ρ : ℝ) := fun (x, d, y, e) =>
+  let (x', d') := F ω (x, d)
+  let (y', e') := G ρ (y, e)
+  (x', d', y', e')
+
+/-- Entry geometry condition `C` for the common center and radius (Fig. 10, Eq. (3)). -/
+@[reducible]
+def C (r : ℝ) (x d y e c : Vec2) : Prop :=
+  ‖x - c‖ = √3 * r ∧ ∃ lx ≥ (0: ℝ), x + lx • d = c ∧
+  ‖y - c‖ = √3 * r ∧ ∃ ly ≥ (0: ℝ), y + ly • e = c
+
+/-- Tangential roundabout configuration `R` (Eq. (2)). -/
+@[reducible]
+def R (ω : ℝ) (c : Vec2) (x d y e : Vec2) : Prop :=
+  d = ω • perp (x - c) ∧ e = ω • perp (y - c)
+
+
+/-- All velocities are tangential to the same roundabout. -/
+@[reducible] def RMany {n : ℕ} (ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) : Prop :=
+  ∀ i, d i = ω • perp (x i - c)
+
+end Defs
+
+open Defs
+
 @[simp] theorem perp_sub (u v : Vec2) : perp (u - v) = perp u - perp v := by
   ext i
   fin_cases i
@@ -44,12 +82,12 @@ theorem otherSpeedGap_hasPrime (s ω ρ : ℝ) (domain : Vec2 × Vec2 × Vec2 ×
     HasPrime (Evolvable.denotation (flight ω ρ)) domain (otherSpeedGap s) (fun _ => 0) := by
   ode_deriv [otherSpeedGap, flight, F, G, perp]
 
-theorem AC2 :
+theorem pairwise_AC2 :
     ∀ (ω ρ : ℝ) (domain : Vec2 × Vec2 × Vec2 × Vec2 → Prop) (x d y e : Vec2),
-      ∀ res ∈ SetM.run (evolve (flight ω ρ) domain (x, d, y, e)),
-        let (_, d', _, e') := res
-        ‖d'‖ = ‖d‖ ∧ ‖e'‖ = ‖e‖ := by
-  intro ω ρ domain x d y e ⟨xr, dr, yr, er⟩ hrun
+      ∀ x' d' y' e',
+        (x', d', y', e') ∈ SetM.run (evolve (flight ω ρ) domain (x, d, y, e)) →
+          ‖d'‖ = ‖d‖ ∧ ‖e'‖ = ‖e‖ := by
+  intro ω ρ domain x d y e xr dr yr er hrun
   have hd := dIeq (ode := flight ω ρ) (domain := domain)
     (pre := fun st => speedGap ‖d‖ st = 0)
     (speedGap ‖d‖) (fun _ => 0) (speedGap_hasPrime ‖d‖ ω ρ domain)
@@ -96,13 +134,13 @@ theorem separationGap_hasPrime (p ω : ℝ) (c : Vec2) (domain : Vec2 × Vec2 ×
       (fun (x, d, y, e) => domain (x, d, y, e) ∧ R ω c x d y e) (separationGap p) (fun _ => 0) := by
   ode_deriv [separationGap, R, flight, F, G, perp]
 
-theorem AC1_circ :
+theorem pairwise_AC1_circ :
     ∀ (p ω : ℝ) (c : Vec2) (domain : Vec2 × Vec2 × Vec2 × Vec2 → Prop) (x d y e : Vec2),
       R ω c x d y e ∧ Separated p x y →
-        ∀ res ∈ SetM.run (evolve (flight ω ω) domain (x, d, y, e)),
-          let (x', d', y', e') := res
-          R ω c x' d' y' e' ∧ Separated p x' y' := by
-  intro p ω c domain x d y e hpre ⟨xr, dr, yr, er⟩ hrun
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight ω ω) domain (x, d, y, e)) →
+            R ω c x' d' y' e' ∧ Separated p x' y' := by
+  intro p ω c domain x d y e hpre xr dr yr er hrun
   apply And.intro (R_preserved ω c domain (x, d, y, e) hpre.1 _ hrun)
   have hsafe :
       (fun (x, d, y, e) => R ω c x d y e ∧ Separated p x y)
@@ -117,80 +155,10 @@ theorem AC1_circ :
       · exact fun _ _ => le_rfl
   exact sub_nonneg.mp (hsafe (x, d, y, e) hpre (xr, dr, yr, er) hrun)
 
-def freeStep (p ω ρ : ℝ) (x d y e : Vec2) :=
-  evolve (flight ω ρ) (fun (x, _, y, _) => Separated p x y) (x, d, y, e)
-
-@[spec] theorem freeStep_spec (p ω ρ : ℝ) (x d y e : Vec2) :
-    ⦃Separated p x y⦄ freeStep p ω ρ x d y e
-    ⦃fun (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖⦄ := by
-  constructor
-  intro hpre
-  apply SetM.wp_and
-  · exact dW (ode := flight ω ρ)
-      (pre := fun (x, (_ : Vec2), y, (_ : Vec2)) => Separated p x y)
-      (fun _ hdom => hdom) (x, d, y, e) hpre
-  · exact AC2 ω ρ _ x d y e
-
-def free' (p : ℝ) (x d₀ y e₀ : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires Separated p x y
-    ensures (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d₀‖ ∧ ‖er‖ = ‖e₀‖
-    := do
-  let mut (x, d, y, e) := (x, d₀, y, e₀)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => Separated p x y ∧ ‖d‖ = ‖d₀‖ ∧ ‖e‖ = ‖e₀‖ do
-    let ω ← choose ℝ
-    let ρ ← choose ℝ
-    (x, d, y, e) ← freeStep p ω ρ x d y e
-  return (x, d, y, e)
-
-theorem AC1_free :
-    ∀ (p r : ℝ) (x d y e : Vec2), Separated (far p r) x y →
-      ∀ res ∈ SetM.run (free_f p r x d y e),
-        let (x', d', y', e') := res
-        Separated (far p r) x' y' ∧ ‖d'‖ = ‖d‖ ∧ ‖e'‖ = ‖e‖ := by
-  intro p r x d y e hpre res hrun
-  exact (free'.spec (far p r) x d y e).le_wp hpre res hrun
-
-/-- The unrestricted circular phase of the NTRM controller. -/
-def circStep (_p ω : ℝ) (_c x d y e : Vec2) :=
-  evolve (flight ω ω) (fun _ => True) (x, d, y, e)
-
-@[spec] theorem circStep_spec (p ω : ℝ) (c x d y e : Vec2) :
-    ⦃R ω c x d y e ∧ Separated p x y⦄ circStep p ω c x d y e
-    ⦃fun (xr, _, yr, _) => Separated p xr yr⦄ := by
-  constructor
-  intro hpre res hrun
-  exact (AC1_circ p ω c _ x d y e hpre res hrun).2
-
 @[spec] theorem agree_spec : ⦃True⦄ agree ⦃fun _ => True⦄ := by
   constructor
   intro _ _ _
   trivial
-
-/-- Figure 5: compose the AC1 phase contracts with instantaneous entry. -/
-def ntrm' (p : ℝ) (x d y e : Vec2) : SetM Result
-    requires Separated p x y
-    ensures res => Separated p res.x res.y
-    := do
-  let mut (x, d, y, e) := (x, d, y, e)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => Separated p x y do
-    (x, d, y, e) ← free' p x d y e
-    let (ω, c) ← agree
-    (d, e) := entry_n ω c x y
-    (x, d, y, e) ← circStep p ω c x d y e
-  return { x, y }
-where finally
-  | spec => all_goals simp_all [entry_n]
-
-theorem ntrm_safe :
-    ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
-      ∀ res ∈ SetM.run (ntrm p x d y e),
-        Separated p res.x res.y := by
-  intro p x d y e hpre res hrun
-  exact (ntrm'.spec p x d y e).le_wp hpre res hrun
 
 /-- A simultaneous fleet evolution projects to the existing two-aircraft ODE. -/
 theorem flight_many_pair {n : ℕ} (ω : Fin n → ℝ) (domain : (Fin n → Vec2) × (Fin n → Vec2) → Prop)
@@ -223,8 +191,9 @@ theorem circ_many_safe {n : ℕ} (p ω : ℝ) (c : Vec2)
       ∀ res ∈ SetM.run (evolve (flight_many (fun _ => ω)) domain (x, d)),
         SeparatedMany p res.1 := by
   intro hpre res hrun i j hij
-  exact (AC1_circ p ω c (fun _ => True) (x i) (d i) (x j) (d j)
-    ⟨⟨hpre.1 i, hpre.1 j⟩, hpre.2 i j hij⟩ _
+  exact (pairwise_AC1_circ p ω c (fun _ => True) (x i) (d i) (x j) (d j)
+    ⟨⟨hpre.1 i, hpre.1 j⟩, hpre.2 i j hij⟩
+    (res.1 i) (res.2 i) (res.1 j) (res.2 j)
     (flight_many_pair (fun _ => ω) domain x d i j res hrun)).2
 
 /-- A single free-flight segment, with the same domain as the model. -/
@@ -288,30 +257,6 @@ theorem ntrm_many_safe :
   intro n p x d hpre res hrun
   exact (ntrm_many'.spec p x d).le_wp hpre res hrun
 
-def agree_f' (p : ℝ) (x d y e : Vec2) : SetM (ℝ × Vec2 × ℝ)
-    requires True
-    ensures (ω, c, r) => 0 ≤ r ∧ C r x d y e c ∧ Separated (far p r) x y ∧
-      (r * ω) ^ 2 = ‖d‖ ^ 2
-    := do
-  let c ← choose Vec2
-  let r ← chooseS {r : ℝ | r ≥ 0}
-  ensure (C r x d y e c)
-  unless Separated (far p r) x y do abort
-  let ω ← choose ℝ
-  unless (r * ω) ^ 2 = ‖d‖ ^ 2 do abort
-  return (ω, c, r)
-where finally
-  | spec => all_goals grind [SetM.run]
-
-theorem AC6 :
-    ∀ (p : ℝ) (x d y e : Vec2),
-      ∀ res ∈ SetM.run (agree_f p x d y e),
-        let (ω, c, r) := res
-        0 ≤ r ∧ C r x d y e c ∧ Separated (far p r) x y ∧
-          (r * ω) ^ 2 = ‖d‖ ^ 2 := by
-  intro p x d y e res hrun
-  exact (agree_f'.spec p x d y e).le_wp trivial res hrun
-
 @[simp] theorem norm_perp (v : Vec2) : ‖perp v‖ = ‖v‖ := by
   apply (sq_eq_sq₀ (norm_nonneg _) (norm_nonneg _)).mp
   simp [EuclideanSpace.real_norm_sq_eq, Fin.sum_univ_two, perp, add_comm]
@@ -337,13 +282,13 @@ theorem exitGap_hasPrime (p : ℝ) (domain : Vec2 × Vec2 × Vec2 × Vec2 → Pr
       (fun st => 2 * exitInner st) := by
   ode_deriv [exitInner, separationGap, flight, F, G]
 
-theorem AC7 :
+theorem pairwise_AC7 :
     ∀ (p ω : ℝ) (c x d y e : Vec2),
       R ω c x d y e ∧ Separated p x y →
-        ∀ res ∈ SetM.run (exitEvol (x, d, y, e)),
-          let (x', _, y', _) := res
-          Separated p x' y' := by
-  intro p ω c x d y e hpre ⟨xr, dr, yr, er⟩ hrun
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight 0 0) (fun _ => True) (x, d, y, e)) →
+            Separated p x' y' := by
+  intro p ω c x d y e hpre xr dr yr er hrun
   have horth : exitInner (x, d, y, e) = 0 := by
     dsimp [exitInner]
     rw [R_relative ω c x d y e hpre.1, real_inner_smul_right, inner_perp_self, mul_zero]
@@ -377,33 +322,6 @@ theorem straightTrajectory_evolution (x d y e : Vec2) (T : ℝ) :
   have hy := ((hasDerivAt_id t).smul_const e).const_add y
   simpa using (hx.prodMk ((hasDerivAt_const t d).prodMk
     (hy.prodMk (hasDerivAt_const t e)))).hasDerivWithinAt
-
-theorem AC7_live :
-    ∀ (ω : ℝ) (c x d y e : Vec2),
-      R ω c x d y e ∧ d ≠ e →
-        ∀ a : ℝ, ∃ res ∈ SetM.run (exitEvol (x, d, y, e)),
-          let (x', _, y', _) := res
-          a ^ 2 < ‖x' - y'‖ ^ 2 := by
-  intro ω c x d y e hpre a
-  have hv : 0 < ‖d - e‖ := norm_pos_iff.mpr (sub_ne_zero.mpr hpre.2)
-  let T := (|a| + ‖x - y‖ + 1) / ‖d - e‖
-  have hT : 0 ≤ T := by dsimp [T]; positivity
-  have htime : T * ‖d - e‖ = |a| + ‖x - y‖ + 1 := by
-    dsimp [T]
-    exact div_mul_cancel₀ _ hv.ne'
-  have hdiff : (x + T • d) - (y + T • e) = x - y + T • (d - e) := by
-    simp only [smul_sub]
-    abel
-  have htriangle := norm_sub_le (x - y + T • (d - e)) (x - y)
-  simp only [add_sub_cancel_left, norm_smul, Real.norm_eq_abs, abs_of_nonneg hT,
-    htime] at htriangle
-  apply Exists.intro (straightTrajectory x d y e T)
-  apply And.intro
-  · exact SemanticODE.mem_evolveSemantic _ _ _ T _ hT
-      (straightTrajectory_evolution x d y e T)
-  · change a ^ 2 < ‖(x + T • d) - (y + T • e)‖ ^ 2
-    rw [hdiff]
-    nlinarith [sq_abs a, norm_nonneg (x - y + T • (d - e)), abs_nonneg a]
 
 theorem constant_of_zero_derivative {E : Type} [NormedAddCommGroup E] [NormedSpace ℝ E]
     (f : ℝ → E) (T : ℝ) (hT : 0 ≤ T)
@@ -627,14 +545,15 @@ theorem entry_tangent_of_radius (r ω T : ℝ) (c : Vec2) (x d : ℝ → Vec2) (
   simpa only [entryCircleInvariant, hradius, sub_self, mul_zero, sub_zero,
     sq_eq_zero_iff, norm_eq_zero, sub_eq_zero] using heq
 
-theorem AC4 :
+theorem pairwise_AC4 :
     ∀ (r ω : ℝ) (c x d y e : Vec2),
       0 < r ∧ 0 < ‖d‖ ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
         ∃ (duration : ℝ) (trajectory : ℝ → Vec2 × Vec2 × Vec2 × Vec2),
           0 ≤ duration ∧ duration ≤ Real.pi * r / (3 * ‖d‖) ∧
           IsEvolution trajectory (Evolvable.denotation (flight (-ω) (-ω)))
             (fun _ => True) (x, d, y, e) duration ∧
-          let (xr, _, yr, _) := trajectory duration
+          let xr := (trajectory duration).1
+          let yr := (trajectory duration).2.2.1
           ‖xr - c‖ ^ 2 = r ^ 2 ∧ ‖yr - c‖ ^ 2 = r ^ 2 := by
   intro r ω c x d y e ⟨hr, hd, hentry, hspeed, he⟩
   obtain ⟨hx, lx, hlx, hxc, hy, ly, hly, hyc⟩ := hentry
@@ -644,8 +563,8 @@ theorem AC4 :
     nlinarith [sq_pos_of_pos hd]
   have hs := speed_radius r ω d hr.le hspeed
   have hes : ‖e‖ = r * |ω| := he.trans hs
-  have hxp := hx.trans (sqrt_radius r hr.le)
-  have hyp := hy.trans (sqrt_radius r hr.le)
+  have hxp := hx
+  have hyp := hy
   let T := Real.pi / (3 * |ω|)
   have hT : 0 ≤ T := by dsimp [T]; positivity
   have hperiod : |ω| * T = Real.pi / 3 := by dsimp [T]; field_simp
@@ -679,8 +598,8 @@ theorem entry_evolution_tangent (r ω T : ℝ) (c x d y e : Vec2)
     let (xr, dr, yr, er) := path T
     R ω c xr dr yr er := by
   obtain ⟨hx, lx, hlx, hxc, hy, ly, hly, hyc⟩ := hentry
-  have hxp := hx.trans (sqrt_radius r hr.le)
-  have hyp := hy.trans (sqrt_radius r hr.le)
+  have hxp := hx
+  have hyp := hy
   have hdpos : 0 < ‖d‖ := by
     by_contra! h
     have hzero : d = 0 := norm_eq_zero.mp (le_antisymm h (norm_nonneg d))
@@ -714,17 +633,17 @@ theorem entry_evolution_tangent (r ω T : ℝ) (c x d y e : Vec2)
     (fun t ht => (hc t ht).2.2.2) hinitY (hnorms.trans hradius)
   exact ⟨hX, hY⟩
 
-theorem AC3 :
+theorem pairwise_AC3 :
     ∀ (r ω : ℝ) (c x d y e : Vec2),
       0 < r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
-        ∀ res ∈ SetM.run (entryEvol ω (x, d, y, e)),
-          let (x', d', y', e') := res
-          ‖x' - c‖ ^ 2 = r ^ 2 → R ω c x' d' y' e' := by
-  intro r ω c x d y e ⟨hr, hentry, hspeed, he⟩ res hrun
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight (-ω) (-ω)) (fun _ => True) (x, d, y, e)) →
+            ‖x' - c‖ ^ 2 = r ^ 2 → R ω c x' d' y' e' := by
+  intro r ω c x d y e ⟨hr, hentry, hspeed, he⟩ xr dr yr er hrun
   apply (evolveSemantic_spec (Evolvable.denotation (flight (-ω) (-ω)))
     (fun _ => True) (x, d, y, e)
     (Q := fun (xr, dr, yr, er) => ‖xr - c‖ ^ 2 = r ^ 2 → R ω c xr dr yr er)).le_wp
-    ?_ res hrun
+    ?_ (xr, dr, yr, er) hrun
   intro T hT path hevo hradius
   exact entry_evolution_tangent r ω T c x d y e path hr hentry hspeed he hT hevo hradius
 
@@ -732,64 +651,6 @@ theorem bind_mem {α β : Type} {p : SetM α} {q : α → SetM β} {a : α} {b :
     (ha : a ∈ SetM.run p) (hb : b ∈ SetM.run (q a)) : b ∈ SetM.run (p >>= q) := by
   change b ∈ ⋃ a ∈ SetM.run p, SetM.run (q a)
   exact Set.mem_iUnion_of_mem a (Set.mem_iUnion_of_mem ha hb)
-
-theorem AC4_live :
-    ∀ (r ω : ℝ) (c x d y e : Vec2),
-      0 < r ∧ 0 < ‖d‖ ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
-        ∃ res ∈ SetM.run (entry_f ω r c x d y e),
-          let (x', _, y', _) := res
-          ‖x' - c‖ ^ 2 = r ^ 2 ∧ ‖y' - c‖ ^ 2 = r ^ 2 := by
-  intro r ω c x d y e hpre
-  obtain ⟨T, path, hT, _, hevo, hradii⟩ := AC4 r ω c x d y e hpre
-  have hrun : path T ∈ SetM.run (entryEvol ω (x, d, y, e)) :=
-    SemanticODE.mem_evolveSemantic _ _ _ T path hT hevo
-  rcases hfinal : path T with ⟨xr, dr, yr, er⟩
-  simp only [hfinal] at hradii hrun
-  apply Exists.intro (xr, dr, yr, er)
-  apply And.intro
-  · unfold entry_f
-    apply bind_mem hrun
-    simp only [hradii.1, ite_true]
-    rfl
-  · exact hradii
-
-theorem AC6_feasible :
-    ∀ (p l : ℝ) (x d y e : Vec2),
-      0 < l ∧ x + l • d = y + l • e ∧ ‖d‖ = ‖e‖ ∧ 0 < ‖d‖ ∧
-      Separated (far p (l * ‖d‖ / Real.sqrt 3)) x y →
-        ∃ ω : ℝ, (ω, x + l • d, l * ‖d‖ / Real.sqrt 3) ∈ SetM.run (agree_f p x d y e) := by
-  intro p l x d y e ⟨hl, hinter, hde, hd, hsep⟩
-  let c := x + l • d
-  let r := l * ‖d‖ / Real.sqrt 3
-  let ω := Real.sqrt 3 / l
-  have hroot : 0 < Real.sqrt 3 := by positivity
-  have hr : 0 ≤ r := by dsimp [r]; positivity
-  have hrad : Real.sqrt 3 * r = l * ‖d‖ := by dsimp [r]; field_simp
-  have hx : ‖x - c‖ = l * ‖d‖ := by
-    have hvec : x - c = -(l • d) := by dsimp [c]; abel
-    rw [hvec, norm_neg, norm_smul, Real.norm_eq_abs, abs_of_pos hl]
-  have hy : ‖y - c‖ = l * ‖d‖ := by
-    have hvec : y - c = -(l • e) := by dsimp [c]; rw [hinter]; abel
-    rw [hvec, norm_neg, norm_smul, Real.norm_eq_abs, abs_of_pos hl, ← hde]
-  have hentry : C r x d y e c :=
-    ⟨by rw [hx, sqrt_radius r hr, hrad], l, hl.le, rfl,
-      by rw [hy, sqrt_radius r hr, hrad], l, hl.le, hinter.symm⟩
-  have hspeed : (r * ω) ^ 2 = ‖d‖ ^ 2 := by
-    have hmul : r * ω = ‖d‖ := by dsimp [r, ω]; field_simp
-    rw [hmul]
-  apply Exists.intro ω
-  unfold agree_f
-  apply bind_mem (a := c)
-  · trivial
-  apply bind_mem (a := r)
-  · exact hr
-  apply bind_mem (a := ())
-  · exact hentry
-  simp only [show Separated (far p r) x y from hsep, ite_true]
-  apply bind_mem (a := ω)
-  · trivial
-  simp only [hspeed, ite_true]
-  rfl
 
 theorem speed_constant_variable (ω : ℝ → ℝ) (v : ℝ → Vec2) (T : ℝ) (hT : 0 ≤ T)
     (hv : ∀ t ∈ Set.Icc 0 T,
@@ -849,7 +710,7 @@ theorem separated_of_coordinate_bounds (p b T : ℝ) (x y xr yr : Vec2)
   have hnorm : |xr i - yr i| ≤ ‖xr - yr‖ := PiLp.norm_apply_le (xr - yr) i
   exact (sq_le_sq₀ hp (norm_nonneg _)).mpr (hcoord.trans hnorm)
 
-theorem AC5 :
+theorem pairwise_AC5 :
     ∀ (p b T : ℝ) (x d y e : Vec2) (ω ρ : ℝ → ℝ),
       0 ≤ p ∧ 0 ≤ b ∧ 0 ≤ T ∧ ‖d‖ ^ 2 ≤ ‖e‖ ^ 2 ∧ ‖e‖ ^ 2 ≤ b ^ 2 ∧
       Separated (Real.sqrt 2 * (p + 2 * b * T)) x y →
@@ -859,7 +720,8 @@ theorem AC5 :
             (Evolvable.denotation
               (fun (t : ℝ) (st : Vec2 × Vec2 × Vec2 × Vec2) => flight (ω t) (ρ t) st))
             (fun _ => True) (x, d, y, e) duration →
-          let (x', _, y', _) := trajectory duration
+          let x' := (trajectory duration).1
+          let y' := (trajectory duration).2.2.1
           Separated p x' y' := by
   intro p b T x d y e ω ρ ⟨hp, hb, hT, hde, he, hsep⟩ duration path h0 hduration hevo
   have hc := fun t ht => flight_components (ω t) (ρ t) (hevo.2.2 t ht)
@@ -914,73 +776,6 @@ theorem separated_of_far (p r : ℝ) (x y : Vec2) (hp : 0 ≤ p) (hr : 0 ≤ r)
     (h : Separated (far p r) x y) : Separated p x y :=
   separated_mono p (far p r) x y hp (far_ge p r hp hr) h
 
-def freeSafeStep (p r ω ρ : ℝ) (x d y e : Vec2) := freeStep (far p r) ω ρ x d y e
-
-@[spec] theorem freeSafeStep_spec (p r ω ρ : ℝ) (x d y e : Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ Separated p x y⦄ freeSafeStep p r ω ρ x d y e
-    ⦃fun (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖⦄ := by
-  constructor
-  rintro ⟨hp, hr, _⟩
-  apply SetM.wp_and
-  · exact dW (ode := flight ω ρ) (pre := fun _ => True)
-      (fun (xr, _, yr, _) hdom => separated_of_far p r xr yr hp hr hdom)
-      (x, d, y, e) trivial
-  · exact AC2 ω ρ _ x d y e
-
-/-- Free flight preserves ordinary separation even when no positive-duration
-flight is possible. Its zero-iteration branch simply retains the safe state. -/
-def free_safe (p r : ℝ) (x d₀ y e₀ : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires 0 ≤ p ∧ 0 ≤ r ∧ Separated p x y
-    ensures (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d₀‖ ∧ ‖er‖ = ‖e₀‖
-    := do
-  let mut (x, d, y, e) := (x, d₀, y, e₀)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff =>
-        0 ≤ p ∧ 0 ≤ r ∧ Separated p x y ∧ ‖d‖ = ‖d₀‖ ∧ ‖e‖ = ‖e₀‖ do
-    let ω ← choose ℝ
-    let ρ ← choose ℝ
-    (x, d, y, e) ← freeSafeStep p r ω ρ x d y e
-  return (x, d, y, e)
-
-def safeCirc (_p ω : ℝ) (_c x₀ d₀ y₀ e₀ x d y e : Vec2) :=
-  circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
-
-@[spec] theorem safeCirc_spec (p ω : ℝ) (c x₀ d₀ y₀ e₀ x d y e : Vec2) :
-    ⦃R ω c x d y e ∧ Separated p x y⦄
-    safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-    ⦃fun (xr, dr, yr, er) => R ω c xr dr yr er ∧ Separated p xr yr ∧
-      ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖⦄ := by
-  constructor
-  intro hpre res hrun
-  obtain ⟨hR, hsep⟩ := AC1_circ p ω c _ x d y e hpre res hrun
-  exact ⟨hR, hsep, AC2 ω ω _ x d y e res hrun⟩
-
-def safeExit (_p _ω : ℝ) (_c x d y e : Vec2) := exitEvol (x, d, y, e)
-
-@[spec] theorem safeExit_spec (p ω : ℝ) (c x d y e : Vec2) :
-    ⦃R ω c x d y e ∧ Separated p x y⦄ safeExit p ω c x d y e
-    ⦃fun (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖⦄ := by
-  constructor
-  intro hpre res hrun
-  exact ⟨AC7 p ω c x d y e hpre res hrun, AC2 0 0 (fun _ => True) x d y e res hrun⟩
-
-def circ_f' (p ω : ℝ) (c x₀ d₀ y₀ e₀ x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires R ω c x d y e ∧ Separated p x y
-    ensures (xr, dr, yr, er) => R ω c xr dr yr er ∧ Separated p xr yr ∧
-      ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖
-    := do
-  let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
-  return (x, d, y, e)
-
-def exit_f' (p ω : ℝ) (c x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires R ω c x d y e ∧ Separated p x y
-    ensures (xr, dr, yr, er) => Separated p xr yr ∧ ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖
-    := do
-  let (x, d, y, e) ← safeExit p ω c x d y e
-  return (x, d, y, e)
-
 /-! ## Unrestricted entry: safety for arbitrarily many entry turns -/
 
 /-- Equal entry radii and speeds imply a common time to the negotiated center. -/
@@ -989,8 +784,8 @@ theorem entry_common_heading (r ω : ℝ) (c x d y e : Vec2) (hr : 0 < r)
     (hde : ‖e‖ = ‖d‖) :
     ∃ l : ℝ, 0 ≤ l ∧ x + l • d = c ∧ y + l • e = c ∧ (l * ω) ^ 2 = 3 := by
   obtain ⟨hx, l, hl, hxc, hy, m, hm, hyc⟩ := hentry
-  have hxp : ‖x - c‖ = Real.sqrt 3 * r := hx.trans (sqrt_radius r hr.le)
-  have hyp : ‖y - c‖ = Real.sqrt 3 * r := hy.trans (sqrt_radius r hr.le)
+  have hxp : ‖x - c‖ = Real.sqrt 3 * r := hx
+  have hyp : ‖y - c‖ = Real.sqrt 3 * r := hy
   have hposx : x - c = -(l • d) := by rw [← hxc]; abel
   have hposy : y - c = -(m • e) := by rw [← hyc]; abel
   have hlnorm : l * ‖d‖ = Real.sqrt 3 * r := by
@@ -1080,7 +875,7 @@ theorem negotiated_entry_margin (p r : ℝ) (c x d y e : Vec2) (hp : 0 ≤ p) (h
     calc
       _ = ‖(x - c) - (y - c)‖ := by congr 1; abel
       _ ≤ ‖x - c‖ + ‖y - c‖ := norm_sub_le _ _
-      _ = _ := by rw [hx, hy, sqrt_radius r hr]; ring
+      _ = _ := by rw [hx, hy]; ring
   have hupperSq : ‖x - y‖ ^ 2 ≤ 12 * r ^ 2 := by
     have h := (sq_le_sq₀ (norm_nonneg (x - y)) (by positivity)).mpr hupper
     norm_num only [mul_pow, Real.sq_sqrt (show (0 : ℝ) ≤ 3 by norm_num)] at h
@@ -1130,17 +925,6 @@ theorem unrestricted_entry_safe (p r ω : ℝ) (c x d y e : Vec2)
     rw [hx, hy]
     exact separated_of_far p r x y hp hr hsep
 
-theorem AC5_entry :
-    ∀ (p r ω : ℝ) (c x d y e : Vec2),
-      0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ ∧
-      Separated (far p r) x y →
-        ∀ res ∈ SetM.run (entryEvol ω (x, d, y, e)),
-          let (x', _, y', _) := res
-          Separated p x' y' := by
-  intro p r ω c x d y e ⟨hp, hr, hentry, hspeed, hde, hsep⟩ res hrun
-  exact unrestricted_entry_safe p r ω c x d y e hp hr hentry hspeed hde hsep
-    (fun _ => True) res hrun
-
 /-- Successful unrestricted entry establishes tangency after any number of turns. -/
 theorem unrestricted_entry_tangent (r ω : ℝ) (c x d y e : Vec2) (hr : 0 ≤ r)
     (hentry : C r x d y e c) (hspeed : (r * ω) ^ 2 = ‖d‖ ^ 2)
@@ -1149,9 +933,9 @@ theorem unrestricted_entry_tangent (r ω : ℝ) (c x d y e : Vec2) (hr : 0 ≤ r
       ‖positionX res - c‖ ^ 2 = r ^ 2 →
       let (xr, dr, yr, er) := res
       R ω c xr dr yr er := by
-  intro res hrun
+  intro ⟨xr, dr, yr, er⟩ hrun
   by_cases hrpos : 0 < r
-  · exact AC3 r ω c x d y e ⟨hrpos, hentry, hspeed, hde⟩ res hrun
+  · exact pairwise_AC3 r ω c x d y e ⟨hrpos, hentry, hspeed, hde⟩ xr dr yr er hrun
   · intro _
     have hz : r = 0 := le_antisymm (le_of_not_gt hrpos) hr
     obtain ⟨hx, _, _, _, hy, _, _, _⟩ := hentry
@@ -1159,7 +943,7 @@ theorem unrestricted_entry_tangent (r ω : ℝ) (c x d y e : Vec2) (hr : 0 ≤ r
     have hyc : y = c := sub_eq_zero.mp (norm_eq_zero.mp (by simpa [hz] using hy))
     have hd : d = 0 := by simpa [hz] using hspeed.symm
     have he : e = 0 := by simpa [hd] using hde
-    have hrest := stationary_flight (-ω) (-ω) (fun _ => True) x y res
+    have hrest := stationary_flight (-ω) (-ω) (fun _ => True) x y (xr, dr, yr, er)
       (by simpa only [hd, he] using hrun)
     rw [hrest]
     have hperp : perp (0 : Vec2) = 0 := by
@@ -1167,276 +951,224 @@ theorem unrestricted_entry_tangent (r ω : ℝ) (c x d y e : Vec2) (hr : 0 ≤ r
       fin_cases i <;> simp [perp, PiLp.toLp_apply]
     simp only [R, hxc, hyc, sub_self, hperp, smul_zero, and_self]
 
-def unrestrictedEntryStep (_p _r ω : ℝ) (_c x d y e : Vec2) :=
-  entryEvol ω (x, d, y, e)
+/-! ## Synchronized FTRM for a finite fleet -/
 
-@[spec] theorem unrestrictedEntryStep_spec (p r ω : ℝ) (c x d y e : Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y⦄
-    unrestrictedEntryStep p r ω c x d y e
-    ⦃fun (xr, dr, yr, er) => Separated p xr yr ∧
-      (‖xr - c‖ ^ 2 = r ^ 2 → R ω c xr dr yr er) ∧
-      ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖⦄ := by
+section
+
+theorem flight_many_speeds {n : ℕ} (ω : Fin n → ℝ)
+    (domain : (Fin n → Vec2) × (Fin n → Vec2) → Prop) (x d : Fin n → Vec2)
+    (res : (Fin n → Vec2) × (Fin n → Vec2))
+    (hrun : res ∈ SetM.run (evolve (flight_many ω) domain (x, d))) :
+    ∀ i, ‖res.2 i‖ = ‖d i‖ := by
+  intro i
+  exact (pairwise_AC2 (ω i) (ω i) (fun _ => True) (x i) (d i) (x i) (d i)
+    (res.1 i) (res.2 i) (res.1 i) (res.2 i)
+    (flight_many_pair ω domain x d i i res hrun)).1
+
+def entrySafeStep_many {n : ℕ} (_p _r ω : ℝ) (_c : Vec2) (x d : Fin n → Vec2) :=
+  entryEvol_many ω x d
+
+@[spec] theorem entryEvol_many_spec {n : ℕ} (p r ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) :
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ ConditionC r c x d ∧ (∀ i, (r * ω) ^ 2 = ‖d i‖ ^ 2) ∧
+      EqualSpeeds d ∧ SeparatedMany (far p r) x⦄
+    entrySafeStep_many p r ω c x d
+    ⦃fun (xr, dr) => SeparatedMany p xr ∧
+      ((∀ i, ‖xr i - c‖ ^ 2 = r ^ 2) → RMany ω c xr dr) ∧
+      (∀ i, ‖dr i‖ = ‖d i‖)⦄ := by
   constructor
-  rintro ⟨hp, hr, hentry, hspeed, hde, hsep⟩ res hrun
-  exact ⟨AC5_entry p r ω c x d y e ⟨hp, hr, hentry, hspeed, hde, hsep⟩ res hrun,
-    unrestricted_entry_tangent r ω c x d y e hr hentry hspeed hde res hrun,
-    AC2 (-ω) (-ω) (fun _ => True) x d y e res hrun⟩
+  rintro ⟨hp, hr, hc, hs, heq, hsep⟩ ⟨xr, dr⟩ hrun
+  have hpair (i j : Fin n) : (xr i, dr i, xr j, dr j) ∈
+      SetM.run (evolve (flight (-ω) (-ω)) (fun _ => True) (x i, d i, x j, d j)) :=
+    flight_many_pair (fun _ => -ω) (fun _ => True) x d i j (xr, dr) hrun
+  have hC (i j : Fin n) : C r (x i) (d i) (x j) (d j) c := by
+    obtain ⟨hi, li, hli, hxi⟩ := hc i
+    obtain ⟨hj, lj, hlj, hxj⟩ := hc j
+    exact ⟨hi, li, hli, hxi, hj, lj, hlj, hxj⟩
+  refine ⟨?_, ?_, flight_many_speeds (fun _ : Fin n => -ω) (fun _ => True) x d (xr, dr) hrun⟩
+  · intro i j hij
+    exact unrestricted_entry_safe p r ω c (x i) (d i) (x j) (d j)
+      hp hr (hC i j) (hs i) (heq j i) (hsep i j hij) (fun _ => True)
+      (xr i, dr i, xr j, dr j) (hpair i j)
+  · intro hreach i
+    exact (unrestricted_entry_tangent r ω c (x i) (d i) (x i) (d i) hr
+      (hC i i) (hs i) rfl (xr i, dr i, xr i, dr i) (hpair i i) (hreach i)).1
+def freeSafeStep_many {n : ℕ} (p r : ℝ) (ω : Fin n → ℝ) (x d : Fin n → Vec2) :=
+  freeStep_many (far p r) ω x d
 
-/-- A contract for the unchanged `entry_f`, including every permitted extra turn. -/
-def unrestrictedEntry (p r ω : ℝ) (c x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires 0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y
-    ensures (xr, dr, yr, er) => R ω c xr dr yr er ∧ Separated p xr yr ∧
-      ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖
+@[spec] theorem freeSafeStep_many_spec {n : ℕ} (p r : ℝ) (ω : Fin n → ℝ)
+    (x d : Fin n → Vec2) :
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ SeparatedMany p x⦄ freeSafeStep_many p r ω x d
+    ⦃fun (xr, dr) => SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖⦄ := by
+  constructor
+  rintro ⟨hp, hr, _⟩
+  apply SetM.wp_and
+  · exact dW (ode := flight_many ω) (pre := fun _ => True)
+      (fun (xr, _) hdom i j hij => separated_of_far p r (xr i) (xr j) hp hr (hdom i j hij))
+      (x, d) trivial
+  · intro res hrun
+    exact flight_many_speeds ω _ x d res hrun
+
+def free_safe_many {n : ℕ} (p r : ℝ) (x d₀ : Fin n → Vec2) :
+    SetM ((Fin n → Vec2) × (Fin n → Vec2))
+    requires 0 ≤ p ∧ 0 ≤ r ∧ SeparatedMany p x
+    ensures (xr, dr) => SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d₀ i‖
     := do
-  let (x, d, y, e) ← unrestrictedEntryStep p r ω c x d y e
-  unless ‖x - c‖ ^ 2 = r ^ 2 do abort
-  return (x, d, y, e)
+  let mut (x, d) := (x, d₀)
+  let iterations ← choose ℕ
+  for _ in [:iterations]
+      invariant _pref _suff =>
+        0 ≤ p ∧ 0 ≤ r ∧ SeparatedMany p x ∧ ∀ i, ‖d i‖ = ‖d₀ i‖ do
+    let ω ← choose (Fin n → ℝ)
+    (x, d) ← freeSafeStep_many p r ω x d
+  return (x, d)
 
-theorem entry_f_safe (p r ω : ℝ) (c x d y e : Vec2)
-    (hpre : 0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y) :
-    ∀ res ∈ SetM.run (entry_f ω r c x d y e),
-      let (xr, dr, yr, er) := res
-      R ω c xr dr yr er ∧ Separated p xr yr ∧ ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖ := by
-  intro res hrun
-  exact (unrestrictedEntry.spec p r ω c x d y e).le_wp hpre res hrun
-
-/-- The full-state FTRM preserves separation and equal speeds, carrying the
-latest negotiated radius into the next iteration and the returned state. -/
-def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
-    requires 0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
-    ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
+def agree_f_many' {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : SetM (ℝ × Vec2 × ℝ)
+    requires True
+    ensures (ω, c, r) => 0 ≤ r ∧ ConditionC r c x d ∧ SeparatedMany (far p r) x ∧
+      ∀ i, (r * ω) ^ 2 = ‖d i‖ ^ 2
     := do
-  let mut (x, d, y, e) := (x₀, d₀, y₀, e₀)
+  let c ← choose Vec2
+  let r ← chooseS {r : ℝ | r > 0}
+  ensure (ConditionC r c x d)
+  unless SeparatedMany (far p r) x do abort
+  let ω ← choose ℝ
+  unless ∀ i, (r * ω) ^ 2 = ‖d i‖ ^ 2 do abort
+  return (ω, c, r)
+where finally
+  | spec => all_goals grind [SetM.run]
+
+def entry_f_many' {n : ℕ} (p r ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) :
+    SetM ((Fin n → Vec2) × (Fin n → Vec2))
+    requires 0 ≤ p ∧ 0 ≤ r ∧ ConditionC r c x d ∧ (∀ i, (r * ω) ^ 2 = ‖d i‖ ^ 2) ∧
+      EqualSpeeds d ∧ SeparatedMany (far p r) x
+    ensures (xr, dr) => RMany ω c xr dr ∧ SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖
+    := do
+  let (x, d) ← entrySafeStep_many p r ω c x d
+  unless ∀ i, ‖x i - c‖ ^ 2 = r ^ 2 do abort
+  return (x, d)
+
+def circSafeStep_many {n : ℕ} (_p ω : ℝ) (_c : Vec2) (x₀ d₀ x d : Fin n → Vec2) :=
+  circEvol_many ω x₀ d₀ x d
+
+@[spec] theorem circEvol_many_spec {n : ℕ} (p ω : ℝ) (c : Vec2)
+    (x₀ d₀ x d : Fin n → Vec2) :
+    ⦃RMany ω c x d ∧ SeparatedMany p x⦄ circSafeStep_many p ω c x₀ d₀ x d
+    ⦃fun (xr, dr) => RMany ω c xr dr ∧ SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖⦄ := by
+  constructor
+  rintro ⟨hR, hsep⟩ ⟨xr, dr⟩ hrun
+  let D : (Fin n → Vec2) × (Fin n → Vec2) → Prop := fun (x, d) =>
+    ¬ExitReadyMany x₀ d₀ x d ∨
+      (x, d) ∈ frontier {st | ExitReadyMany x₀ d₀ st.1 st.2}
+  have hevo : (xr, dr) ∈ SetM.run (evolve (flight_many (fun _ => ω)) D (x, d)) := hrun
+  refine ⟨?_, circ_many_safe p ω c D x d ⟨hR, hsep⟩ (xr, dr) hevo,
+    flight_many_speeds (fun _ : Fin n => ω) D x d (xr, dr) hevo⟩
+  intro i
+  exact (R_preserved ω c (fun _ => True) (x i, d i, x i, d i) ⟨hR i, hR i⟩
+    (xr i, dr i, xr i, dr i)
+    (flight_many_pair (fun _ => ω) D x d i i (xr, dr) hevo)).1
+
+def exitSafeStep_many {n : ℕ} (_p _ω : ℝ) (_c : Vec2) (x d : Fin n → Vec2) :=
+  exitEvol_many x d
+
+@[spec] theorem exitEvol_many_spec {n : ℕ} (p ω : ℝ) (c : Vec2)
+    (x d : Fin n → Vec2) :
+    ⦃RMany ω c x d ∧ SeparatedMany p x⦄ exitSafeStep_many p ω c x d
+    ⦃fun (xr, dr) => SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖⦄ := by
+  constructor
+  rintro ⟨hR, hsep⟩ ⟨xr, dr⟩ hrun
+  refine ⟨?_, flight_many_speeds (fun _ : Fin n => 0) (fun _ => True) x d (xr, dr) hrun⟩
+  intro i j hij
+  exact pairwise_AC7 p ω c (x i) (d i) (x j) (d j) ⟨⟨hR i, hR j⟩, hsep i j hij⟩
+    (xr i) (dr i) (xr j) (dr j)
+    (flight_many_pair (fun _ => 0) (fun _ => True) x d i j (xr, dr) hrun)
+
+def circ_f_many' {n : ℕ} (p ω : ℝ) (c : Vec2) (x₀ d₀ x d : Fin n → Vec2) :
+    SetM ((Fin n → Vec2) × (Fin n → Vec2))
+    requires RMany ω c x d ∧ SeparatedMany p x
+    ensures (xr, dr) => RMany ω c xr dr ∧ SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖
+    := do
+  let (x, d) ← circSafeStep_many p ω c x₀ d₀ x d
+  ensure (ExitReadyMany x₀ d₀ x d)
+  return (x, d)
+
+def ftrm_many' {n : ℕ} (p r : ℝ) (x₀ d₀ : Fin n → Vec2) : SetM (FtrmManyResult n)
+    requires 0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d₀ ∧ SeparatedMany p x₀
+    ensures res => 0 ≤ res.r ∧ EqualSpeeds res.d ∧ SeparatedMany p res.x
+    := do
+  let mut (x, d) := (x₀, d₀)
   let mut r := r
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => 0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y do
-    (x, d, y, e) ← free_safe p r x d y e
-    let (ω, c, r_new) ← agree_f' p x d y e
+  let iterations ← choose ℕ
+  for _ in [:iterations]
+      invariant _pref _suff => 0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x do
+    (x, d) ← free_safe_many p r x d
+    let (ω, c, r_new) ← agree_f_many' p x d
     r := r_new
-    let (x₀, d₀, y₀, e₀) := (x, d, y, e)
-    (x, d, y, e) ← unrestrictedEntry p r ω c x d y e
-    (x, d, y, e) ← circ_f' p ω c x₀ d₀ y₀ e₀ x d y e
-    (x, d, y, e) ← exit_f' p ω c x d y e
-  return { x, d, y, e, r }
+    let (x₀, d₀) := (x, d)
+    (x, d) ← entry_f_many' p r ω c x d
+    (x, d) ← circ_f_many' p ω c x₀ d₀ x d
+    (x, d) ← exitSafeStep_many p ω c x d
+  return { x, d, r }
+where finally
+  | spec => all_goals simp_all [EqualSpeeds]; all_goals grind
 
-@[spec] theorem ftrm_spec (p r : ℝ) (x d y e : Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄ ftrm p r x d y e
-    ⦃fun res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y⦄ := by
-  exact ftrm'.spec p r x d y e
+theorem ftrm_many_eq {n : ℕ} (p r : ℝ) (x d : Fin n → Vec2) :
+    ftrm_many p r x d = ftrm_many' p r x d := rfl
 
-def ftrmPrefix' (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
-    requires 0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
-    ensures res => Separated p res.x res.y
+@[spec] theorem ftrm_many_spec {n : ℕ} (p r : ℝ) (x d : Fin n → Vec2) :
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrm_many p r x d
+    ⦃fun res => 0 ≤ res.r ∧ EqualSpeeds res.d ∧ SeparatedMany p res.x⦄ :=
+  ftrm_many'.spec p r x d
+
+def ftrmPrefix_many' {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
+    SetM (Fin n → Vec2)
+    requires 0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x
+    ensures xr => SeparatedMany p xr
     := do
-  let (x, d, y, e) ← free_safe p r x d y e
-  if k = 0 then return { x, y }
-  let (ω, c, r) ← agree_f' p x d y e
-  if k = 1 then return { x, y }
-  let (x₀, d₀, y₀, e₀) := (x, d, y, e)
-  let (x, d, y, e) ← unrestrictedEntryStep p r ω c x d y e
-  if k = 2 then return { x, y }
-  unless ‖x - c‖ ^ 2 = r ^ 2 do abort
-  let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  if k = 3 then return { x, y }
-  ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
-  let (x, _, y, _) ← safeExit p ω c x d y e
-  return { x, y }
+  let (x, d) ← free_safe_many p r x d
+  if k = 0 then return x
+  let (ω, c, r) ← agree_f_many' p x d
+  if k = 1 then return x
+  let (x₀, d₀) := (x, d)
+  let (x, d) ← entrySafeStep_many p r ω c x d
+  if k = 2 then return x
+  unless ∀ i, ‖x i - c‖ ^ 2 = r ^ 2 do abort
+  let (x, d) ← circSafeStep_many p ω c x₀ d₀ x d
+  if k = 3 then return x
+  ensure (ExitReadyMany x₀ d₀ x d)
+  let (x, _) ← exitSafeStep_many p ω c x d
+  return x
+where finally
+  | spec => all_goals simp_all [EqualSpeeds]; all_goals grind
 
-@[spec] theorem ftrmPrefix_spec (p r : ℝ) (k : Fin 5) (x d y e : Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄ ftrmPrefix p r k x d y e
-    ⦃fun res => Separated p res.x res.y⦄ := by
-  exact ftrmPrefix'.spec p r k x d y e
+theorem ftrmPrefix_many_eq {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
+    ftrmPrefix_many p r k x d = ftrmPrefix_many' p r k x d := rfl
 
-theorem ftrm_end_safe :
-    ∀ (p r : ℝ) (x d y e : Vec2),
-      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ r > 0 ∧ Separated (far p r) x y →
-        ∀ res ∈ SetM.run (ftrm p r x d y e),
-          Separated p res.x res.y := by
-  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ res hrun
-  have hpost := (ftrm_spec p r x d y e).le_wp
-    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ res hrun
-  exact hpost.2.2
+@[spec] theorem ftrmPrefix_many_spec {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrmPrefix_many p r k x d
+    ⦃fun xr => SeparatedMany p xr⦄ := ftrmPrefix_many'.spec p r k x d
 
-theorem ftrm_throughout_safe :
-    ∀ (p r : ℝ) (x d y e : Vec2),
-      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
-        ∀ st ∈ SetM.run (ftrm p r x d y e),
-          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p st.r k st.x st.d st.y st.e),
-            Separated p res.x res.y := by
-  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ st hrun k res hprefix
-  obtain ⟨hri, hdi, hsafe⟩ := (ftrm_spec p r x d y e).le_wp
-    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ st hrun
-  exact (ftrmPrefix_spec p st.r k st.x st.d st.y st.e).le_wp ⟨hp, hri, hdi, hsafe⟩ res hprefix
+theorem ftrm_many_end_safe :
+    ∀ (n : ℕ) (p r : ℝ) (x d : Fin n → Vec2),
+      0 ≤ p ∧ EqualSpeeds d ∧ 0 < r ∧ SeparatedMany (far p r) x →
+        ∀ res ∈ SetM.run (ftrm_many p r x d), SeparatedMany p res.x := by
+  intro n p r x d ⟨hp, hspeed, hr, hfar⟩ res hrun
+  have hsep : SeparatedMany p x := by
+    intro i j hij
+    exact separated_of_far p r (x i) (x j) hp hr.le (hfar i j hij)
+  exact ((ftrm_many_spec p r x d).le_wp ⟨hp, hr.le, hspeed, hsep⟩ res hrun).2.2
 
-/-! ## Theorem 1: arbitrary modified entry procedures -/
+theorem ftrm_many_throughout_safe :
+    ∀ (n : ℕ) (p r : ℝ) (x d : Fin n → Vec2),
+      0 ≤ p ∧ EqualSpeeds d ∧ 0 < r ∧ SeparatedMany (far p r) x →
+        ∀ st ∈ SetM.run (ftrm_many p r x d), ∀ k : Fin 5,
+          ∀ res ∈ SetM.run (ftrmPrefix_many p st.r k st.x st.d), SeparatedMany p res := by
+  intro n p r x d ⟨hp, hspeed, hr, hfar⟩ st hrun k res hprefix
+  have hsep : SeparatedMany p x := by
+    intro i j hij
+    exact separated_of_far p r (x i) (x j) hp hr.le (hfar i j hij)
+  obtain ⟨hr', hs', hsep'⟩ := (ftrm_many_spec p r x d).le_wp ⟨hp, hr.le, hspeed, hsep⟩ st hrun
+  exact (ftrmPrefix_many_spec p st.r k st.x st.d).le_wp ⟨hp, hr', hs', hsep'⟩ res hprefix
 
-/-- AC2 for a clocked entry with independent, time-varying turn rates. -/
-theorem entryDynamics_speeds (turnX turnY : ℝ → ℝ) (T : ℝ) (x d y e : Vec2) :
-    wp (evolve (entryDynamics turnX turnY) (entryDomain T)
-      ((x, d, y, e), (0 : ℝ)))
-      (fun res => ‖res.1.2.1‖ = ‖d‖ ∧ ‖res.1.2.2.2‖ = ‖e‖) estack⟨⟩ := by
-  apply (evolveSemantic_spec (Evolvable.denotation (entryDynamics turnX turnY))
-    (entryDomain T) ((x, d, y, e), (0 : ℝ))
-    (Q := fun res => ‖res.1.2.1‖ = ‖d‖ ∧ ‖res.1.2.2.2‖ = ‖e‖)).le_wp
-  intro duration htime path hevo
-  have hc := fun t ht => flight_components (turnX t) (turnY t) (hevo.2.2.1 t ht)
-  simpa only [hevo.1, velocityD, velocityE] using
-    And.intro
-      (speed_constant_variable turnX (fun t => velocityD (path t).1) duration htime
-        (fun t ht => (hc t ht).2.1))
-      (speed_constant_variable turnY (fun t => velocityE (path t).1) duration htime
-        (fun t ht => (hc t ht).2.2.2))
-
-theorem modifiedEntryEvol_speeds (entry : EntryProcedure) (bound : EntryTimeBound)
-    (r ω : ℝ) (c x d y e : Vec2) :
-    wp (modifiedEntryEvol entry bound r ω c x d y e)
-      (fun res => ‖res.1.2.1‖ = ‖d‖ ∧ ‖res.1.2.2.2‖ = ‖e‖) estack⟨⟩ := by
-  exact WPMonad.bind_le_wp_bind (entry r ω c x d y e)
-    (fun (turnX, turnY) =>
-      evolve (entryDynamics turnX turnY) (entryDomain (bound r ω c x d y e))
-        ((x, d, y, e), (0 : ℝ)))
-    (fun res => ‖res.1.2.1‖ = ‖d‖ ∧ ‖res.1.2.2.2‖ = ‖e‖) estack⟨⟩
-    (fun (turnX, turnY) _ => entryDynamics_speeds turnX turnY _ x d y e)
-
-def modifiedEntryEvolSafe (entry : EntryProcedure) (bound : EntryTimeBound)
-    (_p r ω : ℝ) (c x d y e : Vec2) :=
-  modifiedEntryEvol entry bound r ω c x d y e
-
-@[spec] theorem modifiedEntryEvolSafe_spec (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r ω : ℝ) (c x d y e : Vec2) :
-    ⦃ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y⦄
-    modifiedEntryEvolSafe entry bound p r ω c x d y e
-    ⦃fun (st, t) => Separated p st.1 st.2.2.1 ∧
-      (t = bound r ω c x d y e → R ω c st.1 st.2.1 st.2.2.1 st.2.2.2) ∧
-      ‖st.2.1‖ = ‖d‖ ∧ ‖st.2.2.2‖ = ‖e‖⦄ := by
-  exact ⟨fun ⟨hcontract, hpre⟩ res hrun =>
-    let hs := (hcontract r ω c x d y e hpre).2 res hrun
-    ⟨hs.1, hs.2, modifiedEntryEvol_speeds entry bound r ω c x d y e res hrun⟩⟩
-
-def modifiedEntryCompleteSafe (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r ω : ℝ) (c x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y
-    ensures (xr, dr, yr, er) => R ω c xr dr yr er ∧ Separated p xr yr ∧
-      ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖
-    := do
-  let T := bound r ω c x d y e
-  let (st, t) ← modifiedEntryEvolSafe entry bound p r ω c x d y e
-  ensure (t = T)
-  return st
-
-def modifiedEntryPrefixSafe (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r ω : ℝ) (c x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
-    requires ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧
-      ‖e‖ = ‖d‖ ∧ Separated (far p r) x y
-    ensures (xr, _, yr, _) => Separated p xr yr
-    := do
-  let (st, _t) ← modifiedEntryEvolSafe entry bound p r ω c x d y e
-  return st
-
-def ftrmModified' (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
-    requires ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
-    ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
-    := do
-  let mut (x, d, y, e) := (x₀, d₀, y₀, e₀)
-  let mut r := r
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => ModifiedEntryContract entry bound p ∧
-        0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y do
-    (x, d, y, e) ← free_safe p r x d y e
-    let (ω, c, r_new) ← agree_f' p x d y e
-    r := r_new
-    let (x₀, d₀, y₀, e₀) := (x, d, y, e)
-    (x, d, y, e) ← modifiedEntryCompleteSafe entry bound p r ω c x d y e
-    (x, d, y, e) ← circ_f' p ω c x₀ d₀ y₀ e₀ x d y e
-    (x, d, y, e) ← exit_f' p ω c x d y e
-  return { x, d, y, e, r }
-
-theorem ftrmModified_eq (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x d y e : Vec2) :
-    ftrmModified entry bound p r x d y e = ftrmModified' entry bound p r x d y e := rfl
-
-@[spec] theorem ftrmModified_spec (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x d y e : Vec2) :
-    ⦃ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄
-    ftrmModified entry bound p r x d y e
-    ⦃fun res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y⦄ :=
-  ftrmModified'.spec entry bound p r x d y e
-
-def ftrmModifiedPrefix' (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
-    requires ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
-    ensures res => Separated p res.x res.y
-    := do
-  let (x, d, y, e) ← free_safe p r x d y e
-  if k = 0 then return { x, y }
-  let (ω, c, r) ← agree_f' p x d y e
-  if k = 1 then return { x, y }
-  let (x₀, d₀, y₀, e₀) := (x, d, y, e)
-  if k = 2 then
-    let (x, _, y, _) ← modifiedEntryPrefixSafe entry bound p r ω c x d y e
-    return { x, y }
-  let (x, d, y, e) ← modifiedEntryCompleteSafe entry bound p r ω c x d y e
-  let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  if k = 3 then return { x, y }
-  ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
-  let (x, _, y, _) ← safeExit p ω c x d y e
-  return { x, y }
-
-theorem ftrmModifiedPrefix_eq (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) :
-    ftrmModifiedPrefix entry bound p r k x d y e =
-      ftrmModifiedPrefix' entry bound p r k x d y e := rfl
-
-@[spec] theorem ftrmModifiedPrefix_spec (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) :
-    ⦃ModifiedEntryContract entry bound p ∧
-      0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄
-    ftrmModifiedPrefix entry bound p r k x d y e
-    ⦃fun res => Separated p res.x res.y⦄ :=
-  ftrmModifiedPrefix'.spec entry bound p r k x d y e
-
-/-- Theorem 1 (modified entry): every complete modified FTRM run is safe whenever
-the replacement entry satisfies the bounded-time safety and tangency contract. -/
-theorem ftrm_modified_end_safe :
-    ∀ (entry : EntryProcedure) (bound : EntryTimeBound) (p r : ℝ) (x d y e : Vec2),
-      ModifiedEntryContract entry bound p →
-      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
-        ∀ res ∈ SetM.run (ftrmModified entry bound p r x d y e),
-          Separated p res.x res.y := by
-  exact fun entry bound p r x d y e hcontract ⟨hp, hde, hr, hsep⟩ res hrun =>
-    ((ftrmModified_spec entry bound p r x d y e).le_wp
-      ⟨hcontract, hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ res hrun).2.2
-
-/-- Theorem 1 (modified entry), throughout: after any number of complete cycles,
-every phase prefix remains safe, including every entry time between zero and `T`. -/
-theorem ftrm_modified_throughout_safe :
-    ∀ (entry : EntryProcedure) (bound : EntryTimeBound) (p r : ℝ) (x d y e : Vec2),
-      ModifiedEntryContract entry bound p →
-      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
-        ∀ st ∈ SetM.run (ftrmModified entry bound p r x d y e),
-          ∀ k : Fin 5,
-          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p st.r k st.x st.d st.y st.e),
-            Separated p res.x res.y := by
-  exact fun entry bound p r x d y e hcontract ⟨hp, hde, hr, hsep⟩
-      st hrun k res hprefix =>
-    let hs := (ftrmModified_spec entry bound p r x d y e).le_wp
-      ⟨hcontract, hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩
-      st hrun
-    (ftrmModifiedPrefix_spec entry bound p st.r k st.x st.d st.y st.e).le_wp
-      ⟨hcontract, hp, hs.1, hs.2.1, hs.2.2⟩ res hprefix
+end
 
 end FM09

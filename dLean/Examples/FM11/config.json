@@ -1,6 +1,6 @@
 {
-    "challenge_module": "Challenge",
-    "solution_module": "Solution",
+    "challenge_module": "dLean.Examples.FM11.Challenge",
+    "solution_module": "dLean.Examples.FM11.Proof",
     "theorem_names": ["FM11.llc_safe", "FM11.glc_safe", "FM11.lhc_safe", "FM11.ghc_safe"],
     "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
     "enable_nanoda": false

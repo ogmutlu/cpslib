@@ -42,22 +42,22 @@ theorem no_cross (T : ℝ) (hT : 0 ≤ T) (f f' : ℝ → ℝ)
   have hmul : -t * f' t ≤ 0 := by simpa using hsign
   nlinarith [hin t ht hft]
 
-@[simp] def stoppingMargin (b B : ℝ) (f l : Car) : St × ℝ → ℝ
+@[simp] def stoppingMargin (b B : ℝ) (f l : Car) : xva × ℝ → ℝ
   | ((x, v, _), _) => 2 * b * B * (x l - x f) + b * v l ^ 2 - B * v f ^ 2
 
-@[simp] def responseMargin (A b B ε : ℝ) (f l : Car) : St × ℝ → ℝ
+@[simp] def responseMargin (A b B ε : ℝ) (f l : Car) : xva × ℝ → ℝ
   | ((x, v, a), t) => stoppingMargin b B f l ((x, v, a), t) -
       B * (A + b) * (A * (ε - t) ^ 2 + 2 * (ε - t) * v f)
 
 theorem stoppingMargin_hasPrime (C : Finset Car) (b B : ℝ) (f l : Car)
-    (hf : f ∈ C) (hl : l ∈ C) (D : St × ℝ → Prop) :
+    (hf : f ∈ C) (hl : l ∈ C) (D : xva × ℝ → Prop) :
     HasPrime (Evolvable.denotation (motion C, time)) D
       (stoppingMargin b B f l)
       (fun ((_, v, a), _) => 2 * b * v l * (B + a l) - 2 * B * v f * (b + a f)) := by
   ode_deriv [stoppingMargin, motion, time]
 
 theorem responseMargin_hasPrime (C : Finset Car) (A b B ε : ℝ) (f l : Car)
-    (hf : f ∈ C) (hl : l ∈ C) (D : St × ℝ → Prop) :
+    (hf : f ∈ C) (hl : l ∈ C) (D : xva × ℝ → Prop) :
     HasPrime (Evolvable.denotation (motion C, time)) D
       (responseMargin A b B ε f l)
       (fun ((_, v, a), t) => 2 * b * v l * (B + a l) +
@@ -116,7 +116,7 @@ theorem response_margin_preserved (C : Finset Car) (A b B ε : ℝ)
 
 /-- Positive stopping margin rules out crossing, including at the evolution endpoint. -/
 theorem order_preserved (C : Finset Car) (b B : ℝ) (hb : 0 < b) (hbB : b ≤ B)
-    (f l : Car) (hf : f ∈ C) (hl : l ∈ C) (D : St × ℝ → Prop)
+    (f l : Car) (hf : f ∈ C) (hl : l ∈ C) (D : xva × ℝ → Prop)
     (hD : ∀ st, D st → let ((_, v, _), _) := st;
       0 ≤ v f ∧ 0 ≤ v l ∧ 0 < stoppingMargin b B f l st) :
     (fun ((x, _, _), _) => x f < x l)
@@ -148,7 +148,7 @@ theorem order_preserved (C : Finset Car) (b B : ℝ) (hb : 0 < b) (hbB : b ≤ B
       mul_nonneg hb.le (sub_nonneg.mpr hsq)]
 
 theorem stoppingMargin_pos_iff (b B : ℝ) (hb : 0 < b) (hB : 0 < B)
-    (f l : Car) (st : St × ℝ) :
+    (f l : Car) (st : xva × ℝ) :
     0 < stoppingMargin b B f l st ↔
       (let ((x, v, _), _) := st
        x f + v f ^ 2 / (2 * b) < x l + v l ^ 2 / (2 * B)) := by
@@ -223,7 +223,7 @@ theorem acceleration_pair_preserved (C : Finset Car) (ε : ℝ) (f l : Car)
   simpa only [hfrozen, hlfrozen] using hpre
 
 theorem behind_of_margin (b B : ℝ) (hb : 0 < b) (hB : 0 < B)
-    (f l : Car) (st : St × ℝ)
+    (f l : Car) (st : xva × ℝ)
     (horder : let ((x, _, _), _) := st; x f < x l)
     (hmargin : 0 < stoppingMargin b B f l st)
     (hvf : let ((_, v, _), _) := st; 0 ≤ v f)
@@ -235,7 +235,7 @@ theorem behind_of_margin (b B : ℝ) (hb : 0 < b) (hB : 0 < B)
 /-- A positive stopping margin and the velocity domain establish local safety. -/
 theorem behind_preserved_of_margin (C : Finset Car) (b B : ℝ) (hb : 0 < b)
     (hbB : b ≤ B) (f l : Car) (hf : f ∈ C) (hl : l ∈ C)
-    (D pre : St × ℝ → Prop)
+    (D pre : xva × ℝ → Prop)
     (hvel : ∀ st, D st → let ((_, v, _), _) := st; 0 ≤ v f ∧ 0 ≤ v l)
     (hinit : ∀ st, pre st → let ((x, _, _), _) := st; x f < x l)
     (hmargin : pre [[evolve (motion C, time) D]]
@@ -254,7 +254,7 @@ theorem behind_preserved_of_margin (C : Finset Car) (b B : ℝ) (hb : 0 < b)
       exact behind_of_margin b B hb (hb.trans_le hbB) f l st h.2 h.1.2
         (hvel st h.1.1).1 (hvel st h.1.1).2
 
-@[simp] def BrakingPre (b B : ℝ) (f l : Car) (st : St × ℝ) : Prop :=
+@[simp] def BrakingPre (b B : ℝ) (f l : Car) (st : xva × ℝ) : Prop :=
   let ((x, _, a), _) := st
   0 < stoppingMargin b B f l st ∧ x f < x l ∧ -B ≤ a l ∧ a f ≤ -b
 
@@ -275,7 +275,7 @@ theorem braking_phase_safe (C : Finset Car) (ε b B : ℝ) (hb : 0 < b) (hbB : b
 
 theorem responseMargin_le_stoppingMargin (C : Finset Car) (A b B ε : ℝ)
     (hA : 0 ≤ A) (hb : 0 < b) (hB : 0 < B) (f l : Car) (hf : f ∈ C)
-    (st : St × ℝ) (h : domain ε C st) :
+    (st : xva × ℝ) (h : domain ε C st) :
     responseMargin A b B ε f l st ≤ stoppingMargin b B f l st := by
   rcases st with ⟨⟨x, v, a⟩, t⟩
   have hremaining : 0 ≤ ε - t := sub_nonneg.mpr h.2
@@ -284,7 +284,7 @@ theorem responseMargin_le_stoppingMargin (C : Finset Car) (A b B ε : ℝ)
     positivity
   exact sub_le_self _ hreserve
 
-@[simp] def ResponsePre (A b B ε : ℝ) (f l : Car) (st : St × ℝ) : Prop :=
+@[simp] def ResponsePre (A b B ε : ℝ) (f l : Car) (st : xva × ℝ) : Prop :=
   let ((x, _, a), _) := st
   0 < responseMargin A b B ε f l st ∧ x f < x l ∧ -B ≤ a l ∧ a f ≤ A
 
