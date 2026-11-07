@@ -21,7 +21,7 @@ include reference `Proof.lean` files. Follow the workspace instructions and perm
 
 For examples using the shared-model layout:
 
-- Put state types, mathematical predicates, vector fields, evolution domains, and
+- Put state types, result structures, mathematical predicates, vector fields, evolution domains, and
   unannotated hybrid programs in `Model.lean`. Keep it independent of admitted challenge theorems.
 - Import that model in `Challenge.lean` and state the requested theorems there.
 - Import the same model in `Proof.lean`; prove the target theorems independently under
@@ -99,21 +99,44 @@ do not silently add guards, assumptions, or stronger domains to make a proof suc
 
 ### Keep Comparator target statements stable
 
-When authoring statements selected by `config.json`, name returned components using ordinary
-projection bindings in both Challenge and Proof:
+When authoring statements selected by `config.json`, define return `structure` hierarchies
+in `Model.lean` and access fields with direct dot notation in both Challenge and Proof:
 
 ```lean
-∀ res ∈ SetM.run (llc A b B ε f l x v a),
-  let x_res := res.1
-  let v_res := res.2
-  Behind b B x_res v_res f l
+-- In Model.lean:
+structure Result where
+  x : Car → ℝ
+  v : Car → ℝ
+
+def llc (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM Result := do
+  ...
+  return { x, v }
+
+-- In Challenge.lean and Proof.lean:
+theorem llc_safe :
+    ∀ (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ),
+      SafeLane b B f l x v →
+        ∀ res ∈ SetM.run (llc A b B ε f l x v a),
+          Behind b B res.x res.v f l := sorry
 ```
 
-Use a named temporary such as `tmp` for a returned full state, and bind the components once
-before writing the safety condition. Tuple-pattern `let (x, v) := res` can generate different
-auxiliary matcher constants in the two modules because Lean reuses earlier matchers.
-Identical source text and definitionally equal types are not sufficient for Comparator's
-structural statement comparison. Ordinary projection bindings avoid this matcher issue.
+Use a `Result` structure hierarchy (`extends`) in `Model.lean` whenever programs return multiple
+values (as in ACASX, FM09, FM11, and IJRR17). This provides several critical advantages:
+
+1. **Avoids pattern-matching matchers**: Tuple-pattern bindings like `let (x, v) := res` generate
+   module-local auxiliary matcher constants (`.match_1`, `.match_2`) in the Lean environment.
+   Because Lean may number or share matchers differently across modules, `Challenge.lean` and
+   `Proof.lean` / `Solution.lean` will elaborate to different kernel expressions, causing
+   Comparator's structural expression check to reject the solution despite identical source text.
+2. **Eliminates awkward tuple indexing**: Directly accessing fields via `res.x`, `res.v`, `res.p`,
+   etc., replaces fragile, unreadable nested tuple projections (`res.1`, `res.2.2.1`, etc.).
+3. **Canonical global constants**: Field projections (`Result.x`, `Result.v`, etc.) are global
+   constants declared in `Model.lean`, ensuring that both `Challenge.lean` and `Proof.lean`
+   elaborate to identical kernel `Expr`s without any module-local constants.
+4. **Local state vs. Return type**: Loops and continuous evolutions inside `do` blocks can freely
+   use readable local tuple state (e.g. `let mut (x, d, y, e) := ...`); only the final
+   `return { x, y }` packs the result into the structure. Definitional equality between model
+   programs and annotated counterparts (`prog = prog'`) for `rfl` still holds cleanly.
 
 Tuple unpacking remains appropriate inside programs, intrinsic contracts, and helper statements
 not selected by the config; FM09's AC helper statements retain that style. When proving a fixed

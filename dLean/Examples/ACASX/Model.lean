@@ -4,6 +4,22 @@ open dLean
 
 namespace ACASX
 
+structure Result where
+  r : ℝ
+  h : ℝ
+  v : ℝ
+  w : ℝ
+  vlo : ℝ
+
+structure DelayedResult extends Result where
+  d : ℝ
+
+structure TwoSidedResult extends Result where
+  vup : ℝ
+
+structure TimedResult extends TwoSidedResult where
+  t : ℝ
+
 @[reducible]
 def Sense (w : ℝ) : Prop := w = -1 ∨ w = 1
 
@@ -206,7 +222,7 @@ def twoSidedDomain (alo aup w vlo vup a : ℝ) : ℝ × ℝ × ℝ → Prop :=
 def sense : SetM ℝ := chooseS {-1, 1}
 
 /-- From Theorem 1, and `acasx.kyx`. -/
-def immediate (rp hp rv alo r h v w vlo : ℝ) := do
+def immediate (rp hp rv alo r h v w vlo : ℝ) : SetM Result := do
   let mut (r, h, v, w, vlo) := (r, h, v, w, vlo)
   let n ← choose ℕ
   for _ in [:n] do
@@ -218,7 +234,7 @@ def immediate (rp hp rv alo r h v w vlo : ℝ) := do
       -- advisory := (w, vlo)
     let a ← choose ℝ
     (r, h, v) ← evolve (motion rv a) (lowerDomain alo w vlo a) (r, h, v)
-  return (r, h, v, w, vlo)
+  return { r, h, v, w, vlo }
 
 /-- From Eq. (4) -/
 def delayedMotion (rv a : ℝ) : ℝ × ℝ × ℝ × ℝ × ℝ → ℝ × ℝ × ℝ × ℝ × ℝ :=
@@ -231,7 +247,7 @@ def delayedDomain (alo ε w vlo a : ℝ) : ℝ × ℝ × ℝ × ℝ × ℝ → P
 /-- From Theorem 2, and `safe_delay_implicit.kyx`.
 Choosing d `δ` is the `advisory := (w, vlo)` case, `δ + ε` is the `advisory := COC` case.
 Advisory labels have no operational use. -/
-def delayed (rp hp rv alo ad δ ε r h v w vlo d : ℝ) := do
+def delayed (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM DelayedResult := do
   let mut (r, h, v, w, vlo, d) := (r, h, v, w, vlo, d)
   let n ← choose ℕ
   for _ in [:n] do
@@ -245,10 +261,10 @@ def delayed (rp hp rv alo ad δ ε r h v w vlo d : ℝ) := do
     unless (-ad ≤ w * a) do abort
     (r, h, v, d, _) ←
       evolve (delayedMotion rv a) (delayedDomain alo ε w vlo a) (r, h, v, d, 0)
-  return (r, h, v, w, vlo, d)
+  return { r, h, v, w, vlo, d }
 
 /-- From Theorem 3, and `acasxtwosided.kyx`. -/
-def twoSided (rp hp rv alo aup r h v w vlo vup : ℝ) := do
+def twoSided (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM TwoSidedResult := do
   let mut (r, h, v, w, vlo, vup) := (r, h, v, w, vlo, vup)
   let n ← choose ℕ
   for _ in [:n] do
@@ -261,7 +277,7 @@ def twoSided (rp hp rv alo aup r h v w vlo vup : ℝ) := do
       -- advisory := (w, vlo, vup)
     let a ← choose ℝ
     (r, h, v) ← evolve (motion rv a) (twoSidedDomain alo aup w vlo vup a) (r, h, v)
-  return (r, h, v, w, vlo, vup)
+  return { r, h, v, w, vlo, vup }
 
 /-- From Eq. (8) -/
 def clockedMotion (rv a : ℝ) : ℝ × ℝ × ℝ × ℝ → ℝ × ℝ × ℝ × ℝ :=
@@ -274,7 +290,7 @@ def clockedDomain (alo aup tl w vlo vup a : ℝ) : ℝ × ℝ × ℝ × ℝ → 
 
 /-- Common program from Eqs. (8)/(9) (equivalent to paper when initially `t=0`) -/
 def clocked (rv alo aup tl : ℝ) (safe : ℝ → ℝ → ℝ → ℝ → ℝ → ℝ → ℝ → Prop)
-    (r h v w vlo vup t : ℝ) := do
+    (r h v w vlo vup t : ℝ) : SetM TimedResult := do
   let mut (r, h, v, w, vlo, vup, t) := (r, h, v, w, vlo, vup, t)
   let n ← choose ℕ
   for _ in [:n] do
@@ -289,7 +305,7 @@ def clocked (rv alo aup tl : ℝ) (safe : ℝ → ℝ → ℝ → ℝ → ℝ �
       let a ← choose ℝ
       (r, h, v, t) ← evolve (clockedMotion rv a)
         (clockedDomain alo aup tl w vlo vup a) (r, h, v, t)
-  return (r, h, v, w, vlo, vup, t)
+  return { r, h, v, w, vlo, vup, t }
 
 /-- From Theorem 4 -/
 def bounded (rp hp rv alo aup tl r h v w vlo vup t : ℝ) :=

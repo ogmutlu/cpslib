@@ -186,9 +186,9 @@ def lowerStep (_rp _hp rv alo w vlo a r h v : ℝ) :=
 
 /-- Proof-only annotation of the original immediate-response loop.
 The erased program is definitionally equal to `immediate`; see `immediate_eq`. -/
-def immediate' (rp hp rv alo r h v w vlo : ℝ) : SetM (ℝ × ℝ × ℝ × ℝ × ℝ)
+def immediate' (rp hp rv alo r h v w vlo : ℝ) : SetM Result
     requires 0 < alo ∧ Sense w ∧ Limpl rp hp rv alo r h v w vlo
-    ensures (r, h, v, w, vlo) => Sense w ∧ Limpl rp hp rv alo r h v w vlo
+    ensures res => Sense res.w ∧ Limpl rp hp rv alo res.r res.h res.v res.w res.vlo
     := do
   let mut (r, h, v, w, vlo) := (r, h, v, w, vlo)
   let n ← choose ℕ
@@ -201,7 +201,7 @@ def immediate' (rp hp rv alo r h v w vlo : ℝ) : SetM (ℝ × ℝ × ℝ × ℝ
       ensure (Limpl rp hp rv alo r h v w vlo)
     let a ← choose ℝ
     (r, h, v) ← lowerStep rp hp rv alo w vlo a r h v
-  return (r, h, v, w, vlo)
+  return { r, h, v, w, vlo }
 
 theorem A_zero (alo v w vlo : ℝ) (ha : 0 < alo) : A alo 0 0 v w vlo := by
   by_cases hm : maxI v w vlo = 0
@@ -228,12 +228,8 @@ theorem immediate_safe :
     ∀ rp hp rv alo r h v w vlo,
       Bounds rp hp rv alo → Sense w → Limpl rp hp rv alo r h v w vlo →
         ∀ res ∈ SetM.run (immediate rp hp rv alo r h v w vlo),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧ Limpl rp hp rv alo r_res h_res v_res w_res vlo_res := by
+          NoNMAC rp hp res.r res.h ∧
+            Limpl rp hp rv alo res.r res.h res.v res.w res.vlo := by
   intro rp hp rv alo r h v w vlo hb hw hsafe res hrun
   rw [immediate_eq] at hrun
   have hinv := (immediate'.spec rp hp rv alo r h v w vlo).le_wp
@@ -768,9 +764,10 @@ def twoSidedStep (_rp _hp rv alo aup w vlo vup a r h v : ℝ) :=
 
 /-- The newer archive reissues both targets. This annotated loop erases to the
 original program by `rfl`, including the retain-advisory alternative. -/
-def twoSided' (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM (ℝ × ℝ × ℝ × ℝ × ℝ × ℝ)
+def twoSided' (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM TwoSidedResult
     requires 0 < alo ∧ 0 < aup ∧ Sense w ∧ Cimpl rp hp rv alo aup r h v w vlo vup
-    ensures (r, h, v, w, vlo, vup) => Sense w ∧ Cimpl rp hp rv alo aup r h v w vlo vup
+    ensures res => Sense res.w ∧
+      Cimpl rp hp rv alo aup res.r res.h res.v res.w res.vlo res.vup
     := do
   let mut (r, h, v, w, vlo, vup) := (r, h, v, w, vlo, vup)
   let n ← choose ℕ
@@ -785,7 +782,7 @@ def twoSided' (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM (ℝ × ℝ × ℝ
       ensure (Cimpl rp hp rv alo aup r h v w vlo vup)
     let a ← choose ℝ
     (r, h, v) ← twoSidedStep rp hp rv alo aup w vlo vup a r h v
-  return (r, h, v, w, vlo, vup)
+  return { r, h, v, w, vlo, vup }
 
 theorem Aup_zero (aup v w vup : ℝ) (ha : 0 < aup) : Aup aup 0 0 v w vup := by
   by_cases hm : maxI v w vup = 0
@@ -815,9 +812,7 @@ theorem two_sided_safe :
       Bounds rp hp rv alo → alo ≤ aup → Sense w →
       Cimpl rp hp rv alo aup r h v w vlo vup →
         ∀ res ∈ SetM.run (twoSided rp hp rv alo aup r h v w vlo vup),
-          let r_res := res.1
-          let h_res := res.2.1
-          NoNMAC rp hp r_res h_res := by
+          NoNMAC rp hp res.r res.h := by
   intro rp hp rv alo aup r h v w vlo vup hb haup hw hsafe res hrun
   have ha := hb.2.2.2.trans_le haup
   rw [twoSided_eq] at hrun
@@ -1362,9 +1357,10 @@ def delayChoice (δ ε : ℝ) : SetM ℝ := chooseS {δ, δ + ε}
 
 /-- Intrinsic annotation of the selected delayed kyx controller. The two delay
 choices remain exactly `δ` and `δ+ε`; the wrapper equality is proved by `rfl`. -/
-def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM (ℝ × ℝ × ℝ × ℝ × ℝ × ℝ)
+def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM DelayedResult
     requires 0 < alo ∧ Sense w ∧ Dimpl rp hp rv alo ad r h v w vlo d
-    ensures (r, h, v, w, vlo, d) => Sense w ∧ Dimpl rp hp rv alo ad r h v w vlo d
+    ensures res => Sense res.w ∧
+      Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d
     := do
   let mut (r, h, v, w, vlo, d) := (r, h, v, w, vlo, d)
   let n ← choose ℕ
@@ -1379,7 +1375,7 @@ def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM (ℝ × ℝ × �
     let a ← choose ℝ
     unless (-ad ≤ w * a) do abort
     (r, h, v, d, _) ← delayedStep rp hp rv alo ad ε w vlo a r h v d
-  return (r, h, v, w, vlo, d)
+  return { r, h, v, w, vlo, d }
 
 theorem delayed_noNMAC (rp hp rv alo ad r h v w vlo d : ℝ)
     (ha : 0 < alo) (hw : Sense w) (hsafe : Dimpl rp hp rv alo ad r h v w vlo d) :
@@ -1403,14 +1399,8 @@ theorem delayed_safe :
       Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) → Sense w →
       Dimpl rp hp rv alo ad r h v w vlo d →
         ∀ res ∈ SetM.run (delayed rp hp rv alo ad δ ε r h v w vlo d),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let d_res := res.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧
-            Dimpl rp hp rv alo ad r_res h_res v_res w_res vlo_res d_res := by
+          NoNMAC rp hp res.r res.h ∧
+            Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d := by
   intro rp hp rv alo ad δ ε r h v w vlo d hb _had hw hsafe res hrun
   rw [delayed_eq] at hrun
   have hinv := (delayed'.spec rp hp rv alo ad δ ε r h v w vlo d).le_wp
@@ -1655,18 +1645,15 @@ theorem horizontal_energy_preserved (rx ry rv : ℝ) (hvel : rv ^ 2 = rx ^ 2 + r
 theorem horizontal_reduction :
     ∀ rp rx ry rv x y s n,
       HorizontalCoordinates rx ry rv x y s n →
-        ∀ res ∈ SetM.run (evolve (horizontalMotion rx ry rv) (fun _ => True) (x, y, s, n)),
-          let x_res := res.1
-          let y_res := res.2.1
-          let s_res := res.2.2.1
-          let n_res := res.2.2.2
-          (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := by
-  intro rp rx ry rv x y s n hcoord ⟨xr, yr, sr, nr⟩ hrun
+        ∀ x_res y_res s_res n_res,
+          (x_res, y_res, s_res, n_res) ∈
+            SetM.run (evolve (horizontalMotion rx ry rv) (fun _ => True) (x, y, s, n)) →
+            (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := by
+  intro rp rx ry rv x y s n hcoord xr yr sr nr hrun
   have henergy := horizontal_energy_preserved rx ry rv hcoord.2.2.2 (x, y, s, n)
     (by constructor <;> dsimp [horizontalDot, horizontalEnergy] <;>
           linarith [hcoord.1, hcoord.2.2.1])
     (xr, yr, sr, nr) hrun
-  change (rp ^ 2 < xr ^ 2 + yr ^ 2 ↔ rp ^ 2 - nr ^ 2 < sr ^ 2)
   dsimp [horizontalEnergy] at henergy
   constructor <;> intro h <;> linarith
 
@@ -2035,12 +2022,11 @@ theorem bounded_region_noNMAC (rp hp rv alo aup tl clock r h v w vlo vup : ℝ)
   · exact upper_bounded_noNMAC rp hp rv aup tl clock r h v w vup haup hw ht hup
 
 /-- Paper Eq. (8), with the remaining-time region invariant on both nested loops. -/
-def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) :
-    SetM (ℝ × ℝ × ℝ × ℝ × ℝ × ℝ × ℝ)
+def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) : SetM TimedResult
     requires 0 < alo ∧ 0 < aup ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
       CimplBounded rp hp rv alo aup tl clock r h v w vlo vup
-    ensures (r, h, v, w, vlo, vup, clock) => Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
-      CimplBounded rp hp rv alo aup tl clock r h v w vlo vup
+    ensures res => Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+      CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup
     := do
   let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
   let n ← choose ℕ
@@ -2058,7 +2044,7 @@ def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) :
           CimplBounded rp hp rv alo aup tl clock r h v w vlo vup do
       let a ← choose ℝ
       (r, h, v, clock) ← boundedStep rp hp rv alo aup tl w vlo vup a r h v clock
-  return (r, h, v, w, vlo, vup, clock)
+  return { r, h, v, w, vlo, vup, t := clock }
 
 theorem bounded_eq (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) :
     bounded rp hp rv alo aup tl r h v w vlo vup clock =
@@ -2072,15 +2058,8 @@ theorem bounded_safe :
       Bounds rp hp rv alo ∧ 0 < aup → Sense w → (t ≤ tl ∨ tl < 0) →
       CimplBounded rp hp rv alo aup tl t r h v w vlo vup →
         ∀ res ∈ SetM.run (bounded rp hp rv alo aup tl r h v w vlo vup t),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let vup_res := res.2.2.2.2.2.1
-          let t_res := res.2.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧ Sense w_res ∧ (t_res ≤ tl ∨ tl < 0) ∧
-            CimplBounded rp hp rv alo aup tl t_res r_res h_res v_res w_res vlo_res vup_res := by
+          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+            CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup := by
   intro rp hp rv alo aup tl r h v w vlo vup t hb hw ht hsafe res hrun
   have ha := hb.1.2.2.2
   have haup := hb.2
@@ -2100,11 +2079,12 @@ theorem safeable_region_noNMAC (rp hp rv alo aup tl clock vloEx vupEx r h v w vl
 
 /-- Paper Eq. (9), preserving the nominal safeable region on both nested loops. -/
 def safeable' (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
-    SetM (ℝ × ℝ × ℝ × ℝ × ℝ × ℝ × ℝ)
+    SetM TimedResult
     requires 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
       CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx
-    ensures (r, h, v, w, vlo, vup, clock) => Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
-      CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx
+    ensures res => Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+      CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
+        res.w res.vlo vloEx res.vup vupEx
     := do
   let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
   let n ← choose ℕ
@@ -2124,7 +2104,7 @@ def safeable' (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
           CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx do
       let a ← choose ℝ
       (r, h, v, clock) ← safeableStep rp hp rv alo aup tl vloEx vupEx w vlo vup a r h v clock
-  return (r, h, v, w, vlo, vup, clock)
+  return { r, h, v, w, vlo, vup, t := clock }
 
 theorem safeable_eq (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
     safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock =
@@ -2138,16 +2118,9 @@ theorem safeable_safe :
       Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → Sense w → (t ≤ tl ∨ tl < 0) →
       CimplSafeable rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx →
         ∀ res ∈ SetM.run (safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let vup_res := res.2.2.2.2.2.1
-          let t_res := res.2.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧ Sense w_res ∧ (t_res ≤ tl ∨ tl < 0) ∧
-            CimplSafeable rp hp rv alo aup tl t_res r_res h_res v_res
-              w_res vlo_res vloEx vup_res vupEx := by
+          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+            CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
+              res.w res.vlo vloEx res.vup vupEx := by
   intro rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t hb haup htl hw ht hsafe res hrun
   have ha := hb.2.2.2
   have haup := ha.trans_le haup

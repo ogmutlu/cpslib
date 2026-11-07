@@ -36,6 +36,40 @@ noncomputable section
 
 abbrev Vec2 := EuclideanSpace ℝ (Fin 2)
 
+/-- Natural-number labels and an arbitrary active set represent finite as well
+as countably infinite obstacle populations. No finite enumeration is assumed. -/
+abbrev Obstacle := ℕ
+
+structure Result where
+  p : Vec2
+  d : Vec2
+  o : Vec2
+  s : ℝ
+  ω : ℝ
+  r : ℝ
+  v : Vec2
+
+structure OrientationResult extends Result where
+  β : ℝ
+  visible : ℝ
+
+structure NobsResult where
+  p : Vec2
+  d : Vec2
+  o : Obstacle → Vec2
+  s : ℝ
+  ω : ℝ
+  r : ℝ
+  v : Obstacle → Vec2
+
+structure WaypointResult where
+  p : ℝ
+  s : ℝ
+
+structure IntersectionResult extends WaypointResult where
+  o : ℝ
+  v : ℝ
+
 @[simp] def perp (d : Vec2) : Vec2 := !₂[-d 1, d 0]
 
 def infNorm (p : Vec2) : ℝ := max |p 0| |p 1|
@@ -116,11 +150,11 @@ def ctrl_r (b Ω : ℝ) (drive : SetM ℝ) (safe : Vec2 → Vec2 → ℝ → ℝ
 
 /-- Shared loop for Models 2--4 and 7--10. Control retains the physical direction.
 `sense` precedes obstacle/robot control; `act` follows it. Returns
-`(p, d, o, s, ω, r, v)`, retaining the current radius and obstacle velocity. -/
+`{ p, d, o, s, ω, r, v }`, retaining the current radius and obstacle velocity. -/
 def dynamicWindow (b Ω ε : ℝ) (obstacleControl : SetM Vec2) (drive : SetM ℝ)
     (safe : Vec2 → Vec2 → ℝ → ℝ → Prop)
     (sense : Vec2 → ℝ → SetM (Vec2 × ℝ)) (act : ℝ → SetM ℝ)
-    (p d o v : Vec2) (s ω r : ℝ) := do
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
   for _ in [:n] do
@@ -132,7 +166,7 @@ def dynamicWindow (b Ω ε : ℝ) (obstacleControl : SetM Vec2) (drive : SetM �
     o := o_new
     let aActual ← act a
     (p, d, o, s, ω) ← dyn ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 /-- Model 2 / archive Theorem 1: stationary obstacles. -/
 def dwss (A b Ω ε : ℝ) (p d o : Vec2) (s ω r : ℝ) :=
@@ -203,7 +237,7 @@ def velocityRobotControl (V Ω ε : ℝ) (p o : Vec2) (_s _ω r : ℝ) :=
 
 /-- Archive "Corollary 1.1: Velocity-controlled passive safety". Using `motion 0`
 keeps the selected speed and angular velocity fixed during each physical phase. -/
-def dwps_velocity (V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) := do
+def dwps_velocity (V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) : SetM Result := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
   for _ in [:n] do
@@ -214,7 +248,7 @@ def dwps_velocity (V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) := do
     r := r_new
     o := o_new
     (p, d, o, s, ω) ← dyn ε 0 r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 /-! ## Models 4--5: passive-friendly safety -/
 
@@ -288,7 +322,7 @@ def orientationControl (A b V ε γ : ℝ) (p o : Vec2) (s ω r β visible : ℝ
     ensure (stoppingMargin A b 0 ε s < γ * |r|)
     return (A, ω, r, o, 0, visible))
 
-def dwpos (A b V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) := do
+def dwpos (A b V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) : SetM OrientationResult := do
   let mut (p, d, o, s, ω, r, v, β, visible) := (p, d, o, s, ω, r, v, β, visible)
   let n ← choose ℕ
   for _ in [:n] do
@@ -305,7 +339,7 @@ def dwpos (A b V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) := do
     let (res, _t) ← evolve (orientationMotion a r v, time) (orientationDomain ε)
       ((p, d, o, s, ω, β), 0)
     (p, d, o, s, ω, β) := res
-  return (p, d, o, s, ω, r, v, β, visible)
+  return { p, d, o, s, ω, r, v, β, visible }
 
 /-! ### Corollary 2: velocity-controlled passive orientation safety -/
 
@@ -324,7 +358,7 @@ def velocityOrientationControl (V ε γ : ℝ) (p o : Vec2) (_s ω r β visible 
 
 /-- Archive "Corollary 2: Velocity-controlled passive orientation safety".
 Every iteration resets the clock and reestablishes `ω*r = s` before evolution. -/
-def dwpos_velocity (V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) := do
+def dwpos_velocity (V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) : SetM OrientationResult := do
   let mut (p, d, o, s, ω, r, v, β, visible) := (p, d, o, s, ω, r, v, β, visible)
   let n ← choose ℕ
   for _ in [:n] do
@@ -342,7 +376,7 @@ def dwpos_velocity (V ε γ : ℝ) (p d o v : Vec2) (s ω r β visible : ℝ) :=
     let (res, _t) ← evolve (orientationMotion 0 r v, time) (orientationDomain ε)
       ((p, d, o, s, ω, β), 0)
     (p, d, o, s, ω, β) := res
-  return (p, d, o, s, ω, r, v, β, visible)
+  return { p, d, o, s, ω, r, v, β, visible }
 
 /-! ## Models 7--10: actual acceleration and uncertainty -/
 
@@ -395,7 +429,7 @@ def dwpsvu (A b V Ω ε Δs : ℝ) (p d o v : Vec2) (s ω r : ℝ) :=
 
 /-- The clock is reset only at the outer robot-control step. Each inner obstacle
 step continues that same clock, preserving the total reaction bound `ε`. -/
-def dwpsns (A b V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) := do
+def dwpsns (A b V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) : SetM Result := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
   for _ in [:n] do
@@ -411,13 +445,9 @@ def dwpsns (A b V Ω ε : ℝ) (p d o v : Vec2) (s ω r : ℝ) := do
       let (res, t_new) ← evolve (motion a r v, time) (domain ε) ((p, d, o, s, ω), t)
       (p, d, o, s, ω) := res
       t := t_new
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 /-! ## Model 12: countably many explicitly tracked obstacles -/
-
-/-- Natural-number labels and an arbitrary active set represent finite as well
-as countably infinite obstacle populations. No finite enumeration is assumed. -/
-abbrev Obstacle := ℕ
 
 /-- Equation (56): any finite number of active obstacles may update velocity.
 An obstacle's position is never reselected. Unselected velocities retain their
@@ -480,11 +510,11 @@ def dyn_nobs (ε a r : ℝ) (O : Set Obstacle) (v : Obstacle → Vec2)
     (((p, d, s, ω), o), 0)
   return (p, d, o, s, ω)
 
-/-- Model 12, equation (55). Returns `(p, d, o, s, ω, r, v)`, with total
+/-- Model 12, equation (55). Returns `{ p, d, o, s, ω, r, v }`, with total
 position/velocity functions and the current radius. The printed initial state
 (59) imposes no obstacle-velocity bound; no such bound is silently added here. -/
 def dwnobs (A b Ω ε : ℝ) (O : Set Obstacle) (V : Obstacle → ℝ)
-    (p d : Vec2) (o v : Obstacle → Vec2) (s ω r : ℝ) := do
+    (p d : Vec2) (o v : Obstacle → Vec2) (s ω r : ℝ) : SetM NobsResult := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
   for _ in [:n] do
@@ -493,7 +523,7 @@ def dwnobs (A b Ω ε : ℝ) (O : Set Obstacle) (V : Obstacle → ℝ)
     ω := ω_new
     r := r_new
     (p, d, o, s, ω) ← dyn_nobs ε a r O v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 /-! ## Models 13--14: waypoint and intersection liveness -/
 
@@ -521,14 +551,14 @@ def waypointControl (A b ε g Δg Vg p s : ℝ) : SetM ℝ :=
     ensure (-b ≤ a ∧ a ≤ (Vg - s) / ε ∧ a ≤ A)
     return a)
 
-def dwwp (A b ε g Δg Vg p s : ℝ) := do
+def dwwp (A b ε g Δg Vg p s : ℝ) : SetM WaypointResult := do
   let mut (p, s) := (p, s)
   let n ← choose ℕ
   for _ in [:n] do
     let a ← waypointControl A b ε g Δg Vg p s
     let (res, _t) ← evolve (lineMotion a, time) (lineDomain ε) ((p, s), 0)
     (p, s) := res
-  return (p, s)
+  return { p, s }
 
 /-- Archive Theorem 11's parameter conditions, stronger than printed (69). -/
 @[reducible]
@@ -569,7 +599,7 @@ def intersectionMotion (a ao : ℝ) : ℝ × ℝ × ℝ × ℝ → ℝ × ℝ ×
 def intersectionDomain (ε Vmin : ℝ) : (ℝ × ℝ × ℝ × ℝ) × ℝ → Prop :=
   fun ((_p, s, _o, v), t) => t ≤ ε ∧ 0 ≤ s ∧ Vmin ≤ v
 
-def dwcx (A b Vmin ε p s o v : ℝ) := do
+def dwcx (A b Vmin ε p s o v : ℝ) : SetM IntersectionResult := do
   let mut (p, s, o, v) := (p, s, o, v)
   let n ← choose ℕ
   for _ in [:n] do
@@ -578,7 +608,7 @@ def dwcx (A b Vmin ε p s o v : ℝ) := do
     let (res, _t) ← evolve (intersectionMotion a ao, time) (intersectionDomain ε Vmin)
       ((p, s, o, v), 0)
     (p, s, o, v) := res
-  return (p, s, o, v)
+  return { p, s, o, v }
 
 end
 

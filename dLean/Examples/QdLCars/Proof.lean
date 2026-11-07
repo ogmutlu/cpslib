@@ -32,6 +32,10 @@ set_option experimental.intrinsic true
 abbrev Car := Nat
 abbrev State := (Car → ℝ) × (Car → ℝ) × (Car → ℝ)
 
+structure Result where
+  active : Finset Car
+  x : Car → ℝ
+
 @[simp] def motion (active : Finset Car) : Set Car × (State → State) :=
   (active, fun (_x, v, a) => (v, a, 0))
 
@@ -101,7 +105,7 @@ theorem motion_preserves_invariant (active : Finset Car) :
     ⦃fun st => invariant active st.1 st.2.1 st.2.2⦄ := by
   exact ⟨motion_preserves_invariant active st⟩
 
-def prog (active : Finset Car) (x v a : Car → ℝ) := do
+def prog (active : Finset Car) (x v a : Car → ℝ) : SetM Result := do
   let mut active := active
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
@@ -111,11 +115,11 @@ def prog (active : Finset Car) (x v a : Car → ℝ) := do
     unless (∀ j ∈ active, i ≠ j →
             Ordered x v a i j ∨ Ordered x v a j i) do abort
     (x, v, a) ← evolve (motion active) domain (x, v, a)
-  return (active, x)
+  return { active, x }
 
-def prog' (active : Finset Car) (x v a : Car → ℝ)
+def prog' (active : Finset Car) (x v a : Car → ℝ) : SetM Result
     requires invariant active x v a
-    ensures res => ∀ i ∈ res.1, ∀ j ∈ res.1, i ≠ j → res.2 i ≠ res.2 j
+    ensures res => ∀ i ∈ res.active, ∀ j ∈ res.active, i ≠ j → res.x i ≠ res.x j
     := do
   let mut active := active
   let mut (x, v, a) := (x, v, a)
@@ -127,7 +131,7 @@ def prog' (active : Finset Car) (x v a : Car → ℝ)
     unless (∀ j ∈ active, i ≠ j →
         Ordered x v a i j ∨ Ordered x v a j i) do abort
     (x, v, a) ← evolve (motion active) domain (x, v, a)
-  return (active, x)
+  return { active, x }
 where finally
   | spec => all_goals grind [invariant]
 
@@ -139,8 +143,7 @@ theorem collision_freedom :
       (∀ i ∈ active, ∀ j ∈ active,
         i ≠ j → Ordered x v a i j ∨ Ordered x v a j i) →
           ∀ res ∈ SetM.run (prog active x v a),
-          let (active', x_res) := res
-          ∀ i ∈ active', ∀ j ∈ active', i ≠ j → x_res i ≠ x_res j := by
+          ∀ i ∈ res.active, ∀ j ∈ res.active, i ≠ j → res.x i ≠ res.x j := by
   intro active x v a hinv res hrun
   rw [prog_eq_prog'] at hrun
   exact (prog'.spec active x v a).le_wp hinv res hrun

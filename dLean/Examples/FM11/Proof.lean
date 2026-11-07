@@ -358,9 +358,9 @@ def dyn_llc (_A _b _B ε : ℝ) (f l : Car) (x v a : Car → ℝ) :=
     ⦃fun (x_res, v_res, _) => Behind b B x_res v_res f l⦄ := by
   exact dyn_local_spec {f, l} A b B ε f l (by simp) (by simp) x v a
 
-def llc' (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM ((Car → ℝ) × (Car → ℝ))
+def llc' (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM Result
     requires (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ 0 < ε) ∧ Behind b B x v f l
-    ensures (x_res, v_res) => Behind b B x_res v_res f l
+    ensures res => Behind b B res.x res.v f l
     := do
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
@@ -370,7 +370,7 @@ def llc' (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM ((Car → ℝ
     a ← l_ctrl' A B l a
     a ← f_ctrl' A b B ε f l x v a
     (x, v, a) ← dyn_llc A b B ε f l x v a
-  return (x, v)
+  return { x, v }
 
 theorem llc_eq (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) :
     llc A b B ε f l x v a = llc' A b B ε f l x v a := rfl
@@ -380,9 +380,7 @@ theorem llc_safe :
     ∀ A b B ε f l x v a,
       (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ ε > 0) → Behind b B x v f l →
         ∀ res ∈ SetM.run (llc A b B ε f l x v a),
-          let x_res := res.1
-          let v_res := res.2
-          Behind b B x_res v_res f l := by
+          Behind b B res.x res.v f l := by
   intro A b B ε f l x v a hp hbehind res hrun
   rw [llc_eq] at hrun
   exact (llc'.spec A b B ε f l x v a).le_wp ⟨hp, hbehind⟩ res hrun
@@ -584,10 +582,9 @@ def dyn_glc (_A _b _B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) := dyn ε
     ⦃fun (x_res, v_res, _) => LaneSafe C b B x_res v_res⦄ :=
   dyn_laneSafe C C (fun _ hi => hi) A b B ε x v a
 
-def glc' (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
-    SetM ((Car → ℝ) × (Car → ℝ))
+def glc' (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) : SetM Result
     requires (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ 0 < ε) ∧ LaneSafe C b B x v
-    ensures (x_res, v_res) => LaneSafe C b B x_res v_res
+    ensures res => LaneSafe C b B res.x res.v
     := do
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
@@ -596,7 +593,7 @@ def glc' (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
         (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ 0 < ε) ∧ LaneSafe C b B x v do
     a ← ctrl_n' A b B ε C x v a
     (x, v, a) ← dyn_glc A b B ε C x v a
-  return (x, v)
+  return { x, v }
 
 theorem glc_eq (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
     glc A b B ε C x v a = glc' A b B ε C x v a := rfl
@@ -606,14 +603,12 @@ theorem glc_safe :
     ∀ A b B ε x v a (C : Finset Car),
       (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ ε > 0) → LaneSafe C b B x v →
         ∀ res ∈ SetM.run (glc A b B ε C x v a),
-        let x_res := res.1
-        let v_res := res.2
-        LaneSafe C b B x_res v_res ∧
-        (∀ i ∈ C, BehindLStar C b B x_res v_res i) := by
-  intro A b B ε x v a C hp hsafe ⟨xr, vr⟩ hrun
+          LaneSafe C b B res.x res.v ∧
+            (∀ i ∈ C, BehindLStar C b B res.x res.v i) := by
+  intro A b B ε x v a C hp hsafe res hrun
   rw [glc_eq] at hrun
-  have hfinal := (glc'.spec A b B ε C x v a).le_wp ⟨hp, hsafe⟩ (xr, vr) hrun
-  exact ⟨hfinal, laneSafe_star C b B hp.2.1 hp.2.2.1 xr vr hfinal⟩
+  have hfinal := (glc'.spec A b B ε C x v a).le_wp ⟨hp, hsafe⟩ res hrun
+  exact ⟨hfinal, laneSafe_star C b B hp.2.1 hp.2.2.1 res.x res.v hfinal⟩
 
 theorem laneSafe_subset (C D : Finset Car) (hsub : D ⊆ C) (b B : ℝ)
     (hb : 0 < b) (hbB : b ≤ B) (x v : Car → ℝ) (hsafe : LaneSafe C b B x v) :
@@ -687,9 +682,9 @@ where finally
     all_goals tauto
 
 def lhc' (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
-    SetM (Finset Car × (Car → ℝ) × (Car → ℝ))
+    SetM LocalHighwayResult
     requires (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ 0 < ε) ∧ LaneSafe C b B x v
-    ensures (C_res, x_res, v_res) => LaneSafe C_res b B x_res v_res
+    ensures res => LaneSafe res.C b B res.x res.v
     := do
   let mut (x, v, a) := (x, v, a)
   let mut C := C
@@ -709,7 +704,7 @@ def lhc' (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
       C ← create' C b B x v
     a ← ctrl_n' A b B ε C x v a
     (x, v, a) ← dyn_glc A b B ε C x v a
-  return (C, x, v)
+  return { C, x, v }
 
 theorem lhc_eq (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
     lhc A b B ε C x v a = lhc' A b B ε C x v a := rfl
@@ -719,15 +714,12 @@ theorem lhc_safe :
     ∀ A b B ε x v a (C : Finset Car),
       (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ ε > 0) → LaneSafe C b B x v →
         ∀ res ∈ SetM.run (lhc A b B ε C x v a),
-        let C_res := res.1
-        let x_res := res.2.1
-        let v_res := res.2.2
-        LaneSafe C_res b B x_res v_res ∧
-        (∀ i ∈ C_res, BehindLStar C_res b B x_res v_res i) := by
-  intro A b B ε x v a C hp hsafe ⟨Cr, xr, vr⟩ hrun
+          LaneSafe res.C b B res.x res.v ∧
+            (∀ i ∈ res.C, BehindLStar res.C b B res.x res.v i) := by
+  intro A b B ε x v a C hp hsafe res hrun
   rw [lhc_eq] at hrun
-  have hfinal := (lhc'.spec A b B ε C x v a).le_wp ⟨hp, hsafe⟩ (Cr, xr, vr) hrun
-  exact ⟨hfinal, laneSafe_star Cr b B hp.2.1 hp.2.2.1 xr vr hfinal⟩
+  have hfinal := (lhc'.spec A b B ε C x v a).le_wp ⟨hp, hsafe⟩ res hrun
+  exact ⟨hfinal, laneSafe_star res.C b B hp.2.1 hp.2.2.1 res.x res.v hfinal⟩
 
 def delete_l' (lanes : Finset Lane) (C : Lane → Finset Car)
     (b B : ℝ) (x v : Car → ℝ) : SetM (Lane → Finset Car)
@@ -825,10 +817,10 @@ def dyn_ghc (_A _b _B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
     ⟨hp, hsafe l hl, fun i hi => hchoice i (hsub hi) l hl hi⟩ (xr, vr, ar) hrun
 
 def ghc' (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
-    (x v a : Car → ℝ) : SetM ((Lane → Finset Car) × (Car → ℝ) × (Car → ℝ))
+    (x v a : Car → ℝ) : SetM GlobalHighwayResult
     requires (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ 0 < ε) ∧
       ∀ l ∈ lanes, LaneSafe (C l) b B x v
-    ensures (C_res, x_res, v_res) => ∀ l ∈ lanes, LaneSafe (C_res l) b B x_res v_res
+    ensures res => ∀ l ∈ lanes, LaneSafe (res.C l) b B res.x res.v
     := do
   let mut (x, v, a) := (x, v, a)
   let mut C := C
@@ -840,7 +832,7 @@ def ghc' (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
     C ← create_l' lanes C b B x v
     a ← ctrl_n_l' A b B ε lanes C x v a
     (x, v, a) ← dyn_ghc A b B ε lanes C x v a
-  return (C, x, v)
+  return { C, x, v }
 
 theorem ghc_eq (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
     (x v a : Car → ℝ) : ghc A b B ε lanes C x v a = ghc' A b B ε lanes C x v a := rfl
@@ -851,16 +843,12 @@ theorem ghc_safe :
       (0 ≤ A ∧ 0 < b ∧ b ≤ B ∧ ε > 0) →
       (∀ l ∈ lanes, LaneSafe (C l) b B x v) →
         ∀ res ∈ SetM.run (ghc A b B ε lanes C x v a),
-          let C_res := res.1
-          let x_res := res.2.1
-          let v_res := res.2.2
-          ∀ l ∈ lanes, LaneSafe (C_res l) b B x_res v_res ∧
-          (∀ i ∈ C_res l, BehindLStar (C_res l) b B x_res v_res i) := by
-  intro A b B ε x v a lanes C hp hsafe ⟨Cr, xr, vr⟩ hrun
+          ∀ l ∈ lanes, LaneSafe (res.C l) b B res.x res.v ∧
+            (∀ i ∈ res.C l, BehindLStar (res.C l) b B res.x res.v i) := by
+  intro A b B ε x v a lanes C hp hsafe res hrun
   rw [ghc_eq] at hrun
-  have hfinal := (ghc'.spec A b B ε lanes C x v a).le_wp ⟨hp, hsafe⟩ (Cr, xr, vr) hrun
-  dsimp only
+  have hfinal := (ghc'.spec A b B ε lanes C x v a).le_wp ⟨hp, hsafe⟩ res hrun
   intro l hl
-  exact ⟨hfinal l hl, laneSafe_star (Cr l) b B hp.2.1 hp.2.2.1 xr vr (hfinal l hl)⟩
+  exact ⟨hfinal l hl, laneSafe_star (res.C l) b B hp.2.1 hp.2.2.1 res.x res.v (hfinal l hl)⟩
 
 end FM11

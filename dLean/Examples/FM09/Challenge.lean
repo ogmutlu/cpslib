@@ -8,9 +8,7 @@ namespace FM09
 theorem ntrm_safe :
     ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
       ∀ res ∈ SetM.run (ntrm p x d y e),
-        let x_res := res.1
-        let y_res := res.2
-        Separated p x_res y_res := sorry
+        Separated p res.x res.y := sorry
 
 /-- For any fleet size, initially mutually separated aircraft
 remain separated after any NTRM run. -/
@@ -24,9 +22,7 @@ theorem ftrm_end_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ r > 0 ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrm p r x d y e),
-          let x_res := res.1
-          let y_res := res.2.2.1
-          Separated p x_res y_res := sorry
+          Separated p res.x res.y := sorry
 
 /-- Throughout safety for the FTRM: after any number of (incl. zero) FTRM
 iterations, running any prefix of another FTRM iteration is safe. -/
@@ -34,15 +30,8 @@ theorem ftrm_throughout_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrm p r x d y e),
-        let x := st.1
-        let d := st.2.1
-        let y := st.2.2.1
-        let e := st.2.2.2.1
-        let r := st.2.2.2.2
-          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p r k x d y e),
-          let x_res := res.1
-          let y_res := res.2
-          Separated p x_res y_res := sorry
+          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := sorry
 
 
 /-- Theorem 1 (modified entry): every complete modified FTRM run is safe whenever
@@ -52,9 +41,7 @@ theorem ftrm_modified_end_safe :
       ModifiedEntryContract entry bound p →
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrmModified entry bound p r x d y e),
-          let x_res := res.1
-          let y_res := res.2.2.1
-          Separated p x_res y_res := sorry
+          Separated p res.x res.y := sorry
 
 /-- Theorem 1 (modified entry), throughout: after any number of complete cycles,
 every phase prefix remains safe, including every entry time between zero and `T`. -/
@@ -63,16 +50,9 @@ theorem ftrm_modified_throughout_safe :
       ModifiedEntryContract entry bound p →
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrmModified entry bound p r x d y e),
-        let x := st.1
-        let d := st.2.1
-        let y := st.2.2.1
-        let e := st.2.2.2.1
-        let r := st.2.2.2.2
           ∀ k : Fin 5,
-          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p r k x d y e),
-            let x_res := res.1
-            let y_res := res.2
-            Separated p x_res y_res := sorry
+          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := sorry
 
 /-! ## The following are not safety-critical. They are lemmata from the paper. -/
 

@@ -8,6 +8,13 @@ abbrev Car := Nat
 /- x, v, and a for every car. -/
 abbrev St := (Car → ℝ) × (Car → ℝ) × (Car → ℝ)
 
+structure Result where
+  x : Car → ℝ
+  v : Car → ℝ
+
+structure LocalHighwayResult extends Result where
+  C : Finset Car
+
 /-- The relation `f << l` from Section 5.2. -/
 @[reducible]
 def Behind (b B : ℝ) (x v : Car → ℝ) (f l : Car) : Prop :=
@@ -104,14 +111,14 @@ def f_ctrl (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM (Car → �
     return Function.update a f 0)
 
 /-- Local lane control with 2 cars: f (follower) and l (leader) -/
-def llc (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) := do
+def llc (A b B ε : ℝ) (f l : Car) (x v a : Car → ℝ) : SetM Result := do
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
   for _ in [:n] do
     a ← l_ctrl A B l a
     a ← f_ctrl A b B ε f l x v a
     (x, v, a) ← dyn ε {f, l} x v a
-  return (x, v)
+  return { x, v }
 
 -------------------- Global lane control, Model 2 ----------------------------
 
@@ -159,13 +166,13 @@ def ctrl_n (A b B ε : ℝ) (C : Finset Car)
 --                   ∀ i, i ∉ C → a' i = a i}
 
 /-- Global lane control, fixed number of cars -/
-def glc (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) := do
+def glc (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) : SetM Result := do
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
   for _ in [:n] do
     a ← ctrl_n A b B ε C x v a
     (x, v, a) ← dyn ε C x v a
-  return (x, v)
+  return { x, v }
 
 -------------------- Local highway control, Model 3 --------------------------
 
@@ -192,7 +199,8 @@ def create (C : Finset Car) (b B : ℝ) (x v : Car → ℝ) := do
   return C_new
 
 /-- Local highway control, dynamic number of cars -/
-def lhc (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) := do
+def lhc (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) :
+    SetM LocalHighwayResult := do
   let mut (x, v, a) := (x, v, a)
   let mut C := C
   let i ← choose ℕ
@@ -205,13 +213,16 @@ def lhc (A b B ε : ℝ) (C : Finset Car) (x v a : Car → ℝ) := do
       C ← create C b B x v
     a ← ctrl_n A b B ε C x v a
     (x, v, a) ← dyn ε C x v a
-  return (C, x, v)
+  return { C, x, v }
 
 -------------------- Global highway control, Model 4 -------------------------
 -- GHC is not explicitly modelled in the paper unlike the previous ones.
 
 /-- We will represent current situation of cars by `Lane → Finset Car` -/
 abbrev Lane := Nat
+
+structure GlobalHighwayResult extends Result where
+  C : Lane → Finset Car
 
 /-- ∀l : L delete_l∗ -/
 def delete_l (lanes : Finset Lane) (C : Lane → Finset Car) :
@@ -254,7 +265,7 @@ def ctrl_n_l (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
 
 /-- Global highway control, dynamic number of cars, multiple lanes -/
 def ghc (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
-    (x v a : Car → ℝ) := do
+    (x v a : Car → ℝ) : SetM GlobalHighwayResult := do
   let mut (x, v, a) := (x, v, a)
   let mut C := C
   let n ← choose ℕ
@@ -263,6 +274,6 @@ def ghc (A b B ε : ℝ) (lanes : Finset Lane) (C : Lane → Finset Car)
     C ← create_l lanes C b B x v
     a ← ctrl_n_l A b B ε lanes C x v a
     (x, v, a) ← dyn ε (lanes.biUnion C) x v a
-  return (C, x, v)
+  return { C, x, v }
 
 end FM11

@@ -8,6 +8,10 @@ set_option experimental.intrinsic true
 abbrev Car := Nat
 abbrev CarState := ℝ × ℝ × ℝ
 
+structure Result where
+  active : Finset Car
+  x : Car → ℝ
+
 @[simp] def x (f : Car → CarState) (car : Car) : ℝ := (f car).1
 @[simp] def v (f : Car → CarState) (car : Car) : ℝ := (f car).2.1
 @[simp] def a (f : Car → CarState) (car : Car) : ℝ := (f car).2.2
@@ -82,9 +86,9 @@ theorem motion_preserves_invariant (active : Finset Car) :
     ⦃invariant active⦄ := by
   exact ⟨motion_preserves_invariant active f⟩
 
-def prog (active : Finset Car) (f : Car → CarState)
+def prog (active : Finset Car) (f : Car → CarState) : SetM Result
     requires invariant active f
-    ensures res => ∀ i ∈ res.1, ∀ j ∈ res.1, i ≠ j → res.2 i ≠ res.2 j
+    ensures res => ∀ i ∈ res.active, ∀ j ∈ res.active, i ≠ j → res.x i ≠ res.x j
     := do
   let mut active := active
   let mut f := f
@@ -96,14 +100,13 @@ def prog (active : Finset Car) (f : Car → CarState)
     unless (∀ j ∈ active, i ≠ j →
         Ordered f i j ∨ Ordered f j i) do abort
     f ← evolve (motion active) domain f
-  return (active, fun car => x f car)
+  return { active, x := fun car => x f car }
 where finally
   | spec => all_goals grind [invariant, x]
 
 theorem dccs_collision_free :
     ∀ active f, invariant active f →
       ∀ res ∈ SetM.run (prog active f),
-        let (active', x_res) := res
-        ∀ i ∈ active', ∀ j ∈ active', i ≠ j → x_res i ≠ x_res j := by
+        ∀ i ∈ res.active, ∀ j ∈ res.active, i ≠ j → res.x i ≠ res.x j := by
   intro active f hinv res hrun
   exact (prog.spec active f).le_wp hinv res hrun

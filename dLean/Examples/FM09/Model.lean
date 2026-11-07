@@ -8,6 +8,15 @@ namespace FM09
 
 abbrev Vec2 := EuclideanSpace ℝ (Fin 2)
 
+structure Result where
+  x : Vec2
+  y : Vec2
+
+structure FtrmResult extends Result where
+  d : Vec2
+  e : Vec2
+  r : ℝ
+
 /-- Safe planar separation of two aircrafts, with coordinates x and y -/
 @[reducible]
 def Separated (p : ℝ) (x y : Vec2) : Prop :=
@@ -61,7 +70,7 @@ def agree := do
   let e := ω • perp (y - c)
   (d, e) -- direction vectors tangential to roundabout center c
 
-def ntrm (p : ℝ) (x d y e : Vec2) := do
+def ntrm (p : ℝ) (x d y e : Vec2) : SetM Result := do
   let mut (x, d, y, e) := (x, d, y, e)
   let n ← choose ℕ
   for _ in [:n] do
@@ -69,7 +78,7 @@ def ntrm (p : ℝ) (x d y e : Vec2) := do
     let (ω, c) ← agree
     (d, e) := entry_n ω c x y
     (x, d, y, e) ← evolve (flight ω ω) (fun _ => True) (x, d, y, e)
-  return (x, y)
+  return { x, y }
 
 /-!
 ## NTRM for any finite number of aircraft
@@ -175,7 +184,7 @@ def exit_f (x d y e : Vec2) := do
   --unless (far p r) ^ 2 ≤ ‖x - y‖ ^ 2 do abort
   return (x, d, y, e)
 
-def ftrm (p r : ℝ) (x d y e : Vec2) := do
+def ftrm (p r : ℝ) (x d y e : Vec2) : SetM FtrmResult := do
   let mut (x, d, y, e) := (x, d, y, e)
   let mut r := r
   let n ← choose ℕ
@@ -187,27 +196,27 @@ def ftrm (p r : ℝ) (x d y e : Vec2) := do
     (x, d, y, e) ← entry_f ω r c x d y e
     (x, d, y, e) ← circ_f ω x₀ d₀ y₀ e₀ x d y e
     (x, d, y, e) ← exit_f x d y e
-  return (x, d, y, e, r)
+  return { x, d, y, e, r }
 
-def ftrmPrefix (p r : ℝ) (k : Fin 5) (x d y e : Vec2) := do
+def ftrmPrefix (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result := do
   --free
   let (x, d, y, e) ← free_f p r x d y e
-  if k = 0 then return (x, y)
+  if k = 0 then return { x, y }
   --agree
   let (ω, c, r) ← agree_f p x d y e
-  if k = 1 then return (x, y)
+  if k = 1 then return { x, y }
   --entry
   let (x₀, d₀, y₀, e₀) := (x, d, y, e)
   let (x, d, y, e) ← entryEvol ω (x, d, y, e)
-  if k = 2 then return (x, y)
+  if k = 2 then return { x, y }
   --circ
   unless ‖x - c‖ ^ 2 = r ^ 2 do abort
   let (x, d, y, e) ← circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
-  if k = 3 then return (x, y)
+  if k = 3 then return { x, y }
   --exit
   ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← exitEvol (x, d, y, e)
-  return (x, y)
+  return { x, y }
 
 /-!
 ## Theorem 1: replacing the flyable entry procedure
@@ -270,7 +279,7 @@ def modifiedEntryPrefix (entry : EntryProcedure) (bound : EntryTimeBound)
 
 /-- Theorem 1: the original FTRM cycle with only its entry procedure replaced. -/
 def ftrmModified (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x d y e : Vec2) := do
+    (p r : ℝ) (x d y e : Vec2) : SetM FtrmResult := do
   let mut (x, d, y, e) := (x, d, y, e)
   let mut r := r
   let n ← choose ℕ
@@ -282,25 +291,25 @@ def ftrmModified (entry : EntryProcedure) (bound : EntryTimeBound)
     (x, d, y, e) ← modifiedEntryComplete entry bound r ω c x d y e
     (x, d, y, e) ← circ_f ω x₀ d₀ y₀ e₀ x d y e
     (x, d, y, e) ← exit_f x d y e
-  return (x, d, y, e, r)
+  return { x, d, y, e, r }
 
 /-- Observation of every phase of the modified cycle, including entry times before `T`
 and circular-flight times before the exit-ready test. -/
 def ftrmModifiedPrefix (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) := do
+    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result := do
   let (x, d, y, e) ← free_f p r x d y e
-  if k = 0 then return (x, y)
+  if k = 0 then return { x, y }
   let (ω, c, r) ← agree_f p x d y e
-  if k = 1 then return (x, y)
+  if k = 1 then return { x, y }
   let (x₀, d₀, y₀, e₀) := (x, d, y, e)
   if k = 2 then
     let (x, _, y, _) ← modifiedEntryPrefix entry bound r ω c x d y e
-    return (x, y)
+    return { x, y }
   let (x, d, y, e) ← modifiedEntryComplete entry bound r ω c x d y e
   let (x, d, y, e) ← circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
-  if k = 3 then return (x, y)
+  if k = 3 then return { x, y }
   ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← exitEvol (x, d, y, e)
-  return (x, y)
+  return { x, y }
 
 end FM09

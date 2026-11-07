@@ -9,13 +9,8 @@ theorem immediate_safe :
     ∀ rp hp rv alo r h v w vlo,
       Bounds rp hp rv alo → Sense w → Limpl rp hp rv alo r h v w vlo →
         ∀ res ∈ SetM.run (immediate rp hp rv alo r h v w vlo),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧
-            Limpl rp hp rv alo r_res h_res v_res w_res vlo_res := sorry
+          NoNMAC rp hp res.r res.h ∧
+            Limpl rp hp rv alo res.r res.h res.v res.w res.vlo := sorry
 
 /-- STTT17 Lemma 1, also in `acasx.kyx`. -/
 theorem immediate_regions_equivalent :
@@ -30,14 +25,8 @@ theorem delayed_safe :
       Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) → Sense w →
       Dimpl rp hp rv alo ad r h v w vlo d →
         ∀ res ∈ SetM.run (delayed rp hp rv alo ad δ ε r h v w vlo d),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let d_res := res.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧
-            Dimpl rp hp rv alo ad r_res h_res v_res w_res vlo_res d_res := sorry
+          NoNMAC rp hp res.r res.h ∧
+            Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d := sorry
 
 /-- STTT17 Lemma 2 -/
 theorem delayed_regions_equivalent :
@@ -52,9 +41,7 @@ theorem two_sided_safe :
       Bounds rp hp rv alo → alo ≤ aup → Sense w →
       Cimpl rp hp rv alo aup r h v w vlo vup →
         ∀ res ∈ SetM.run (twoSided rp hp rv alo aup r h v w vlo vup),
-          let r_res := res.1
-          let h_res := res.2.1
-          NoNMAC rp hp r_res h_res := sorry
+          NoNMAC rp hp res.r res.h := sorry
 
 /-- STTT17 Lemma 3 -/
 theorem two_sided_regions_equivalent :
@@ -71,15 +58,8 @@ theorem bounded_safe :
       Bounds rp hp rv alo ∧ 0 < aup → Sense w → (t ≤ tl ∨ tl < 0) →
       CimplBounded rp hp rv alo aup tl t r h v w vlo vup →
         ∀ res ∈ SetM.run (bounded rp hp rv alo aup tl r h v w vlo vup t),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let vup_res := res.2.2.2.2.2.1
-          let t_res := res.2.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧ Sense w_res ∧ (t_res ≤ tl ∨ tl < 0) ∧
-          CimplBounded rp hp rv alo aup tl t_res r_res h_res v_res w_res vlo_res vup_res
+          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+          CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup
             := sorry
 
 /-- STTT17 Theorem 5, with stronger postcondition (+ Sense, + CimplSafeable), following
@@ -89,26 +69,17 @@ theorem safeable_safe :
       Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → Sense w → (t ≤ tl ∨ tl < 0) →
       CimplSafeable rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx →
         ∀ res ∈ SetM.run (safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t),
-          let r_res := res.1
-          let h_res := res.2.1
-          let v_res := res.2.2.1
-          let w_res := res.2.2.2.1
-          let vlo_res := res.2.2.2.2.1
-          let vup_res := res.2.2.2.2.2.1
-          let t_res := res.2.2.2.2.2.2
-          NoNMAC rp hp r_res h_res ∧ Sense w_res ∧ (t_res ≤ tl ∨ tl < 0) ∧
-            CimplSafeable rp hp rv alo aup tl t_res r_res h_res v_res
-              w_res vlo_res vloEx vup_res vupEx := sorry
+          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+            CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
+              res.w res.vlo vloEx res.vup vupEx := sorry
 
 /-- STTT17 Proposition 1 -/
 theorem horizontal_reduction :
     ∀ rp rx ry rv x y s n,
       HorizontalCoordinates rx ry rv x y s n →
-        ∀ res ∈ SetM.run (evolve (horizontalMotion rx ry rv) (fun _ => True) (x, y, s, n)),
-          let x_res := res.1
-          let y_res := res.2.1
-          let s_res := res.2.2.1
-          let n_res := res.2.2.2
-          (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := sorry
+        ∀ x_res y_res s_res n_res,
+          (x_res, y_res, s_res, n_res) ∈
+            SetM.run (evolve (horizontalMotion rx ry rv) (fun _ => True) (x, y, s, n)) →
+            (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := sorry
 
 end ACASX

@@ -205,9 +205,9 @@ theorem response_clearance (b ε a r : ℝ) (hb : 0 < b) (ha : a = -b ∨ 0 ≤ 
   · exact response_clearance b ε a r hb (.inr hA) p d o s ω hd hsafe
 
 noncomputable def dwss' (A b Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b)
-    (p d o : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o : Vec2) (s ω r : ℝ) : SetM Result
     requires StaticInv b p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => StaticInv b p d o s
+    ensures res => StaticInv b res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, (0 : Vec2))
   let n ← choose ℕ
@@ -221,7 +221,7 @@ noncomputable def dwss' (A b Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b)
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← staticDyn A b ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwss_eq (A b Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b)
     (p d o : Vec2) (s ω r : ℝ) :
@@ -233,9 +233,7 @@ theorem dwss_safe :
     ∀ A b Ω ε p d o s ω r,
       Bounds A b 0 ε → Initial p d o s →
         ∀ res ∈ SetM.run (dwss A b Ω ε p d o s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          0 < distanceSq p_res o_res := by
+          0 < distanceSq res.p res.o := by
   intro A b Ω ε p d o s ω r hbounds hinit res hrun
   rw [dwss_eq A b Ω ε hbounds.1 hbounds.2.1] at hrun
   exact static_separated b hbounds.2.1 _ _ _ _
@@ -412,9 +410,9 @@ noncomputable def imperfectDyn (_A _b ε _Δd a r : ℝ) (v p d o : Vec2) (s ω 
 
 noncomputable def dwss_imperfect' (A b Ω ε Δd : ℝ) (hA : 0 ≤ A) (hb : 0 < b)
     (hΔ : 0 ≤ Δd) (p d o : Vec2) (s ω r : ℝ) :
-    SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    SetM Result
     requires ImperfectInv b Δd p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => ImperfectInv b Δd p d o s
+    ensures res => ImperfectInv b Δd res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, (0 : Vec2))
   let n ← choose ℕ
@@ -428,7 +426,7 @@ noncomputable def dwss_imperfect' (A b Ω ε Δd : ℝ) (hA : 0 ≤ A) (hb : 0 <
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← imperfectDyn A b ε Δd aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwss_imperfect_eq (A b Ω ε Δd : ℝ) (hA : 0 ≤ A) (hb : 0 < b)
     (hΔ : 0 ≤ Δd) (p d o : Vec2) (s ω r : ℝ) :
@@ -440,9 +438,7 @@ theorem dwss_imperfect_safe :
     ∀ A b Ω ε Δd p d o s ω r,
       Bounds A b 0 ε → (0 ≤ Δd ∧ Δd ≤ 1) → ImperfectInitial Δd p d o s →
         ∀ res ∈ SetM.run (dwss_imperfect A b Ω ε Δd p d o s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          0 < distanceSq p_res o_res := by
+          0 < distanceSq res.p res.o := by
   intro A b Ω ε Δd p d o s ω r hb hΔ hi res hrun
   exact imperfect_separated b Δd hb.2.1 hΔ.1 _ _ _ _
     ((dwss_imperfect'.spec A b Ω ε Δd hb.1 hb.2.1 hΔ.1 p d o s ω r).le_wp
@@ -476,9 +472,7 @@ theorem dwss_imperfect_no_div_safe :
       Bounds A b 0 ε → (0 ≤ Δd ∧ Δd ≤ 1) →
       (ImperfectInitial Δd p d o s ∧ ω = 0 ∧ r = 1) →
         ∀ res ∈ SetM.run (dwss_imperfect_no_div A b Ω ε Δd p d o s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          0 < distanceSq p_res o_res := by
+          0 < distanceSq res.p res.o := by
   intro A b Ω ε Δd p d o s ω r hb hΔ hi res hrun
   rw [dwss_imperfect_no_div_eq A b Ω ε Δd p d o s ω r hb.2.1] at hrun
   exact dwss_imperfect_safe A b Ω ε Δd p d o s ω r hb hΔ hi.1 res hrun
@@ -669,9 +663,9 @@ theorem passive_separated (b V : ℝ) (hb : 0 < b) (hV : 0 ≤ V)
     (le_add_of_nonneg_right (div_nonneg (mul_nonneg hV hs) hb.le)) (hclear hpos)⟩
 
 noncomputable def dwps' (A b V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv b V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv b V p d o s
+    ensures res => PassiveInv b V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -685,7 +679,7 @@ noncomputable def dwps' (A b V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← passiveDyn A b V ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwps_eq (A b V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -697,10 +691,7 @@ theorem dwps_safe :
     ∀ A b V Ω ε p d o v s ω r,
       Bounds A b V ε → Initial p d o s →
         ∀ res ∈ SetM.run (dwps A b V Ω ε p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε p d o v s ω r hbounds hinit res hrun
   rw [dwps_eq A b V Ω ε hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   exact passive_separated b V hbounds.2.1 hbounds.2.2.1 _ _ _ _
@@ -756,9 +747,9 @@ noncomputable def locationControl (A b V Ω ε Δp : ℝ) (_p pm _d o : Vec2)
           (by simpa [hpre.2.1] using hguard.2)⟩)
 
 noncomputable def dwpslu' (A b V Ω ε Δp : ℝ) (hΔ : 0 ≤ Δp) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv b V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv b V p d o s
+    ensures res => PassiveInv b V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -772,7 +763,7 @@ noncomputable def dwpslu' (A b V Ω ε Δp : ℝ) (hΔ : 0 ≤ Δp) (hA : 0 ≤ 
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← passiveDyn A b V ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwpslu_eq (A b V Ω ε Δp : ℝ) (hΔ : 0 ≤ Δp) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -783,10 +774,7 @@ theorem dwpslu_safe :
     ∀ A b V Ω ε Δp p d o v s ω r,
       Bounds A b V ε → 0 ≤ Δp → Initial p d o s →
         ∀ res ∈ SetM.run (dwpslu A b V Ω ε Δp p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε Δp p d o v s ω r hbounds hΔ hinit res hrun
   rw [dwpslu_eq A b V Ω ε Δp hΔ hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   exact passive_separated b V hbounds.2.1 hbounds.2.2.1 _ _ _ _
@@ -822,9 +810,9 @@ noncomputable def velocityControl (A b V Ω ε : ℝ) (p _d o : Vec2)
         (stoppingMargin_speed_mono A b V ε s sm hA hb hV hε hpre.2.1 hpre.1).trans_lt hguard.2⟩)
 
 noncomputable def dwpsvu' (A b V Ω ε Δs : ℝ) (hε : 0 ≤ ε) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv b V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv b V p d o s
+    ensures res => PassiveInv b V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -838,7 +826,7 @@ noncomputable def dwpsvu' (A b V Ω ε Δs : ℝ) (hε : 0 ≤ ε) (hA : 0 ≤ A
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← passiveDyn A b V ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwpsvu_eq (A b V Ω ε Δs : ℝ) (hε : 0 ≤ ε) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -849,10 +837,7 @@ theorem dwpsvu_safe :
     ∀ A b V Ω ε Δs p d o v s ω r,
       Bounds A b V ε → 0 ≤ Δs → Initial p d o s →
         ∀ res ∈ SetM.run (dwpsvu A b V Ω ε Δs p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε Δs p d o v s ω r hbounds _hΔ hinit res hrun
   rw [dwpsvu_eq A b V Ω ε Δs hbounds.2.2.2.le hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   exact passive_separated b V hbounds.2.1 hbounds.2.2.1 _ _ _ _
@@ -900,9 +885,9 @@ noncomputable def perturbAct (_A _b _V _ε Δa : ℝ) (_p _d _o : Vec2) (_s a : 
       by nlinarith [hδ.2], hd, hsafe⟩)
 
 noncomputable def dwpsap' (A b V Ω ε Δa : ℝ) (hΔ : 0 < Δa) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv (b * Δa) V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv (b * Δa) V p d o s
+    ensures res => PassiveInv (b * Δa) V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -916,7 +901,7 @@ noncomputable def dwpsap' (A b V Ω ε Δa : ℝ) (hΔ : 0 < Δa) (hA : 0 ≤ A)
     o := o_new
     let aActual ← perturbAct A b V ε Δa p d o s a
     (p, d, o, s, ω) ← passiveDyn A (b * Δa) V ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 where finally
   | spec => all_goals positivity
 
@@ -929,10 +914,7 @@ theorem dwpsap_safe :
     ∀ A b V Ω ε Δa p d o v s ω r,
       Bounds A b V ε → 0 < Δa → Δa ≤ 1 → Initial p d o s →
         ∀ res ∈ SetM.run (dwpsap A b V Ω ε Δa p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε Δa p d o v s ω r hbounds hΔ _hΔle hinit res hrun
   rw [dwpsap_eq A b V Ω ε Δa hΔ hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   exact passive_separated (b * Δa) V (mul_pos hbounds.2.1 hΔ) hbounds.2.2.1 _ _ _ _
@@ -1088,9 +1070,9 @@ noncomputable def actualDyn (_b _V ε a r : ℝ) (v p d o : Vec2) (s ω : ℝ) :
   · exact actual_clearance b V ε a r hb hV hε ha v p d o s ω hs hv hd hsafe
 
 noncomputable def dwpsa' (A b V Ω ε : ℝ) (hε : 0 < ε) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv b V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv b V p d o s
+    ensures res => PassiveInv b V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -1104,7 +1086,7 @@ noncomputable def dwpsa' (A b V Ω ε : ℝ) (hε : 0 < ε) (hb : 0 < b) (hV : 0
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← actualDyn b V ε aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwpsa_eq (A b V Ω ε : ℝ) (hε : 0 < ε) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -1115,10 +1097,7 @@ theorem dwpsa_safe :
     ∀ A b V Ω ε p d o v s ω r,
       Bounds A b V ε → Initial p d o s →
         ∀ res ∈ SetM.run (dwpsa A b V Ω ε p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε p d o v s ω r hbounds hinit res hrun
   rw [dwpsa_eq A b V Ω ε hbounds.2.2.2 hbounds.2.1 hbounds.2.2.1] at hrun
   exact passive_separated b V hbounds.2.1 hbounds.2.2.1 _ _ _ _
@@ -1273,9 +1252,9 @@ noncomputable def reactionDyn (_A _b _V ε a r : ℝ) (v p d o : Vec2) (s ω t :
   exact reaction_preserved A b V ε a r hA hb hV v hv ((p, d, o, s, ω), t) hinv
 
 noncomputable def dwpsns' (A b V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (hε : 0 ≤ ε) (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (hε : 0 ≤ ε) (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires PassiveInv b V p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => PassiveInv b V p d o s
+    ensures res => PassiveInv b V res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -1293,7 +1272,7 @@ noncomputable def dwpsns' (A b V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 
       let (res, t_new) ← reactionDyn A b V ε a r v p d o s ω t
       (p, d, o, s, ω) := res
       t := t_new
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 where finally
   | spec =>
     all_goals apply reaction_passive A b V ε _ hA hb hV
@@ -1309,10 +1288,7 @@ theorem dwpsns_safe :
     ∀ A b V Ω ε p d o v s ω r,
       Bounds A b V ε → Initial p d o s →
         ∀ res ∈ SetM.run (dwpsns A b V Ω ε p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro A b V Ω ε p d o v s ω r hbounds hinit res hrun
   rw [dwpsns_eq A b V Ω ε hbounds.1 hbounds.2.1 hbounds.2.2.1 hbounds.2.2.2.le] at hrun
   exact passive_separated b V hbounds.2.1 hbounds.2.2.1 _ _ _ _
@@ -1418,9 +1394,9 @@ noncomputable def velocityDyn (_V ε r : ℝ) (v p d o : Vec2) (s ω : ℝ) :=
   exact velocity_phase V ε r hV v p d o s ω hpre.1 hpre.2.1 hpre.2.2
 
 noncomputable def dwps_velocity' (V Ω ε : ℝ) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires VelocityInv p d o s
-    ensures (p, d, o, s, _ω, _r, _v) => VelocityInv p d o s
+    ensures res => VelocityInv res.p res.d res.o res.s
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -1433,7 +1409,7 @@ noncomputable def dwps_velocity' (V Ω ε : ℝ) (hV : 0 ≤ V)
     r := r_new
     o := o_new
     (p, d, o, s, ω) ← velocityDyn V ε r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwps_velocity_eq (V Ω ε : ℝ) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -1444,10 +1420,7 @@ theorem dwps_velocity_safe :
     ∀ V Ω ε p d o v s ω r,
       (0 ≤ V ∧ 0 < ε) → Initial p d o s →
         ∀ res ∈ SetM.run (dwps_velocity V Ω ε p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          PassiveSafe p_res o_res s_res := by
+          PassiveSafe res.p res.o res.s := by
   intro V Ω ε p d o v s ω r hb hi res hrun
   have hinit : VelocityInv p d o s := by
     rcases hi with ⟨rfl, _, hd⟩
@@ -1647,9 +1620,9 @@ noncomputable def orientStep (_A _b _V ε _γ a r _visible : ℝ)
 
 noncomputable def dwpos' (A b V ε γ : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r β visible : ℝ) :
-    SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2 × ℝ × ℝ)
+    SetM OrientationResult
     requires OrientationInv b V γ p d o s r β visible
-    ensures (p, d, o, s, _ω, r, _v, β, visible) => OrientationInv b V γ p d o s r β visible
+    ensures res => OrientationInv b V γ res.p res.d res.o res.s res.r res.β res.visible
     := do
   let mut (p, d, o, s, ω, r, v, β, visible) := (p, d, o, s, ω, r, v, β, visible)
   let n ← choose ℕ
@@ -1667,7 +1640,7 @@ noncomputable def dwpos' (A b V ε γ : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0
     ensure (ω * r = s)
     let (res, _t) ← orientStep A b V ε γ a r visible v p d o s ω β
     (p, d, o, s, ω, β) := res
-  return (p, d, o, s, ω, r, v, β, visible)
+  return { p, d, o, s, ω, r, v, β, visible }
 
 theorem dwpos_eq (A b V ε γ : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r β visible : ℝ) :
@@ -1697,13 +1670,8 @@ theorem dwpos_safe :
       Bounds A b V ε → 0 < γ →
       (Initial p d o s ∧ β = 0 ∧ r ≠ 0) →
         ∀ res ∈ SetM.run (dwpos A b V ε γ p d o v s ω r β visible),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          let β_res := res.2.2.2.2.2.2.2.1
-          let visible_res := res.2.2.2.2.2.2.2.2
-          0 < s_res → 0 < distanceSq p_res o_res ∨
-            (¬0 < visible_res ∧ |β_res| < γ) := by
+          0 < res.s → 0 < distanceSq res.p res.o ∨
+            (¬0 < res.visible ∧ |res.β| < γ) := by
   intro A b V ε γ p d o v s ω r β visible hbounds _hγ hinit res hrun
   rw [dwpos_eq A b V ε γ hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   apply orientation_safe b V γ hbounds.2.1 hbounds.2.2.1 _ _ _ _ _ _ _
@@ -1830,10 +1798,10 @@ noncomputable def velocityOrientationStep (_V ε _γ r _visible : ℝ)
 
 noncomputable def dwpos_velocity' (V ε γ : ℝ) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r β visible : ℝ) :
-    SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2 × ℝ × ℝ)
+    SetM OrientationResult
     requires VelocityOrientationInv γ p d o s r β visible
-    ensures (p, d, o, s, _ω, r, _v, β, visible) =>
-      VelocityOrientationInv γ p d o s r β visible
+    ensures res =>
+      VelocityOrientationInv γ res.p res.d res.o res.s res.r res.β res.visible
     := do
   let mut (p, d, o, s, ω, r, v, β, visible) := (p, d, o, s, ω, r, v, β, visible)
   let n ← choose ℕ
@@ -1852,7 +1820,7 @@ noncomputable def dwpos_velocity' (V ε γ : ℝ) (hV : 0 ≤ V)
     ensure (ω * r = s)
     let (res, _t) ← velocityOrientationStep V ε γ r visible v p d o s ω β
     (p, d, o, s, ω, β) := res
-  return (p, d, o, s, ω, r, v, β, visible)
+  return { p, d, o, s, ω, r, v, β, visible }
 
 theorem dwpos_velocity_eq (V ε γ : ℝ) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r β visible : ℝ) :
@@ -1864,13 +1832,8 @@ theorem dwpos_velocity_safe :
     ∀ V ε γ p d o v s ω r β visible,
       (0 ≤ V ∧ 0 < ε ∧ 0 < γ) → (Initial p d o s ∧ β = 0 ∧ r ≠ 0) →
         ∀ res ∈ SetM.run (dwpos_velocity V ε γ p d o v s ω r β visible),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          let β_res := res.2.2.2.2.2.2.2.1
-          let visible_res := res.2.2.2.2.2.2.2.2
-          0 < s_res → 0 < distanceSq p_res o_res ∨
-            (¬0 < visible_res ∧ |β_res| < γ) := by
+          0 < res.s → 0 < distanceSq res.p res.o ∨
+            (¬0 < res.visible ∧ |res.β| < γ) := by
   intro V ε γ p d o v s ω r β visible hb hi res hrun
   have hinit : VelocityOrientationInv γ p d o s r β visible := by
     rcases hi with ⟨⟨rfl, _, hd⟩, _, hr⟩
@@ -1997,10 +1960,11 @@ noncomputable def friendlyDyn (_A _b _V ε _C a r : ℝ) (v p d o : Vec2) (s ω 
   · exact friendly_clearance a b V ε a r C hb hV (.inr hA) le_rfl v p d o s ω hv hd hsafe
 
 noncomputable def dwpfs' (A b bo τ V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
-    (p d o v : Vec2) (s ω r : ℝ) : SetM (Vec2 × Vec2 × Vec2 × ℝ × ℝ × ℝ × Vec2)
+    (p d o v : Vec2) (s ω r : ℝ) : SetM Result
     requires FriendlyInv b V (friendlyMargin bo τ V) p d o s ∧ v 0 ^ 2 + v 1 ^ 2 ≤ V ^ 2
-    ensures (p, d, o, s, _ω, _r, v) =>
-      FriendlyInv b V (friendlyMargin bo τ V) p d o s ∧ v 0 ^ 2 + v 1 ^ 2 ≤ V ^ 2
+    ensures res =>
+      FriendlyInv b V (friendlyMargin bo τ V) res.p res.d res.o res.s ∧
+        res.v 0 ^ 2 + res.v 1 ^ 2 ≤ V ^ 2
     := do
   let mut (p, d, o, s, ω, r, v) := (p, d, o, s, ω, r, v)
   let n ← choose ℕ
@@ -2016,7 +1980,7 @@ noncomputable def dwpfs' (A b bo τ V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (
     o := o_new
     let aActual ← pure a
     (p, d, o, s, ω) ← friendlyDyn A b V ε (friendlyMargin bo τ V) aActual r v p d o s ω
-  return (p, d, o, s, ω, r, v)
+  return { p, d, o, s, ω, r, v }
 
 theorem dwpfs_eq (A b bo τ V Ω ε : ℝ) (hA : 0 ≤ A) (hb : 0 < b) (hV : 0 ≤ V)
     (p d o v : Vec2) (s ω r : ℝ) :
@@ -2225,11 +2189,7 @@ theorem dwpfs_safe :
     ∀ A b bo τ V Ω ε p d o v s ω r,
       Bounds A b V ε → 0 ≤ τ → 0 < bo → FriendlyInitial bo τ V p d o v s →
         ∀ res ∈ SetM.run (dwpfs A b bo τ V Ω ε p d o v s ω r),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          let s_res := res.2.2.2.1
-          let v_res := res.2.2.2.2.2.2
-          PassiveFriendlySafe bo τ V ε p_res o_res v_res s_res := by
+          PassiveFriendlySafe bo τ V ε res.p res.o res.v res.s := by
   intro A b bo τ V Ω ε p d o v s ω r hbounds hτ hbo hinit res hrun
   rw [dwpfs_eq A b bo τ V Ω ε hbounds.1 hbounds.2.1 hbounds.2.2.1] at hrun
   have hinv := (dwpfs'.spec A b bo τ V Ω ε hbounds.1 hbounds.2.1 hbounds.2.2.1
@@ -2242,7 +2202,7 @@ theorem dwpfs_safe :
     apply clearance_sq (friendlyMargin bo τ V) _ _
       (add_nonneg (div_nonneg (sq_nonneg V) (by positivity)) (mul_nonneg hτ hbounds.2.2.1))
     have hclear := hinv.1.2.2 hpos
-    have hstop : 0 ≤ stopDist b res.2.2.2.1 :=
+    have hstop : 0 ≤ stopDist b res.s :=
       div_nonneg (sq_nonneg _) (mul_nonneg (by norm_num) hbounds.2.1.le)
     have hmove := div_nonneg (mul_nonneg hbounds.2.2.1 hinv.1.1) hbounds.2.1.le
     linarith
@@ -2377,9 +2337,9 @@ noncomputable def waypointDyn (_A _b ε _g _Δg _Vg p s a : ℝ) :=
   ⟨waypoint_phase A b ε g Δg Vg p s a hbounds⟩
 
 noncomputable def dwwp' (A b ε g Δg Vg p s : ℝ) (hbounds : WaypointBounds A b ε Δg Vg) :
-    SetM (ℝ × ℝ)
+    SetM WaypointResult
     requires WaypointInv b g Δg Vg p s
-    ensures (p, s) => WaypointInv b g Δg Vg p s
+    ensures res => WaypointInv b g Δg Vg res.p res.s
     := do
   let mut (p, s) := (p, s)
   let n ← choose ℕ
@@ -2388,7 +2348,7 @@ noncomputable def dwwp' (A b ε g Δg Vg p s : ℝ) (hbounds : WaypointBounds A 
     let a ← waypointCtrl A b ε g Δg Vg p s
     let (res, _t) ← waypointDyn A b ε g Δg Vg p s a
     (p, s) := res
-  return (p, s)
+  return { p, s }
 
 theorem dwwp_eq (A b ε g Δg Vg p s : ℝ) (hbounds : WaypointBounds A b ε Δg Vg) :
     dwwp A b ε g Δg Vg p s = dwwp' A b ε g Δg Vg p s hbounds := by rfl
@@ -2426,10 +2386,12 @@ noncomputable def waypointStep (A b ε g Δg Vg : ℝ) (st : ℝ × ℝ) : SetM 
   return res
 
 theorem dwwp_eq_loop (A b ε g Δg Vg p s : ℝ) :
-    dwwp A b ε g Δg Vg p s = finiteLoop (waypointStep A b ε g Δg Vg) (p, s) := by
+    dwwp A b ε g Δg Vg p s = (do
+      let (p, s) ← finiteLoop (waypointStep A b ε g Δg Vg) (p, s)
+      return ({ p, s } : WaypointResult)) := by
   unfold dwwp finiteLoop
   simp only [← forIn_range_repeat]
-  simp only [waypointStep, bind_assoc, pure_bind, Prod.mk.eta, bind_pure]
+  simp only [waypointStep, bind_assoc, pure_bind, Prod.mk.eta]
 
 theorem waypoint_arbitrary_control (A b ε g Δg Vg p s a : ℝ)
     (hp : p ≤ g - Δg) (hs : s ≤ Vg) (ha : -b ≤ a)
@@ -2479,11 +2441,9 @@ theorem dwwp_live :
     ∀ A b ε g Δg Vg p s,
       WaypointBounds A b ε Δg Vg → (s = 0 ∧ p < g - Δg) →
         (∀ res ∈ SetM.run (dwwp A b ε g Δg Vg p s),
-          let p_res := res.1
-          p_res < g + Δg) ∧
+          res.p < g + Δg) ∧
         (∃ res ∈ SetM.run (dwwp A b ε g Δg Vg p s),
-          let p_res := res.1
-          g - Δg < p_res) := by
+          g - Δg < res.p) := by
   intro A b ε g Δg Vg p s hbounds hinit
   rcases hinit with ⟨rfl, hp⟩
   have hA := hbounds.1
@@ -2500,7 +2460,7 @@ theorem dwwp_live :
     have hinit : WaypointInv b g Δg Vg p 0 := by
       exact ⟨le_rfl, hV, by simpa [stopDist] using (show p < g + Δg by linarith)⟩
     have hinv := (dwwp'.spec A b ε g Δg Vg p 0 hbounds).le_wp hinit res hrun
-    have hstop : 0 ≤ stopDist b res.2 := div_nonneg (sq_nonneg _) (by positivity)
+    have hstop : 0 ≤ stopDist b res.s := div_nonneg (sq_nonneg _) (by positivity)
     linarith [hinv.2.2]
   · have hctrl := waypoint_arbitrary_control A b ε g Δg Vg p 0 A hp.le hV
       (by linarith) ((le_div_iff₀ hε).mpr (by nlinarith)) le_rfl
@@ -2515,10 +2475,12 @@ theorem dwwp_live :
       linarith
     obtain ⟨pr, hreach, hpr⟩ := waypoint_coast_reach A b ε g Δg Vg (A * ε) hA.le hb hε hu huV
       n (p + A / 2 * ε ^ 2) hprogress
-    apply Exists.intro (pr, A * ε)
+    apply Exists.intro { p := pr, s := A * ε }
     apply And.intro ?_ hpr
     rw [dwwp_eq_loop]
-    exact reach_run _ _ _ (reach_prepend _ _ _ _ hstep hreach)
+    apply run_bind _ _ (pr, A * ε) _
+      (reach_run _ _ _ (reach_prepend _ _ _ _ hstep hreach))
+    exact Set.mem_singleton _
 
 def intersectionProjection (robot : Bool) : (ℝ × ℝ × ℝ × ℝ) × ℝ → (ℝ × ℝ) × ℝ :=
   fun ((p, s, o, v), t) => if robot then ((p, s), t) else ((o, v), t)
@@ -2729,9 +2691,9 @@ noncomputable def intersectionDyn (_A _b Vmin ε p s o v a ao : ℝ) :=
   exact intersection_phase A b Vmin ε p s o v a ao hA hb hV hε hs hv hao hready
 
 noncomputable def dwcx' (A b Vmin ε p s o v : ℝ)
-    (hA : 0 < A) (hb : 0 < b) (hV : 0 < Vmin) (hε : 0 < ε) : SetM (ℝ × ℝ × ℝ × ℝ)
+    (hA : 0 < A) (hb : 0 < b) (hV : 0 < Vmin) (hε : 0 < ε) : SetM IntersectionResult
     requires IntersectionInv A b Vmin p s o v
-    ensures (p, s, o, v) => IntersectionInv A b Vmin p s o v
+    ensures res => IntersectionInv A b Vmin res.p res.s res.o res.v
     := do
   let mut (p, s, o, v) := (p, s, o, v)
   let n ← choose ℕ
@@ -2741,7 +2703,7 @@ noncomputable def dwcx' (A b Vmin ε p s o v : ℝ)
     let a ← intersectionCtrl A b Vmin ε p s o v
     let (res, _t) ← intersectionDyn A b Vmin ε p s o v a ao
     (p, s, o, v) := res
-  return (p, s, o, v)
+  return { p, s, o, v }
 
 theorem dwcx_eq (A b Vmin ε p s o v : ℝ)
     (hA : 0 < A) (hb : 0 < b) (hV : 0 < Vmin) (hε : 0 < ε) :
@@ -2819,10 +2781,12 @@ noncomputable def intersectionStep (A b Vmin ε : ℝ) (st : ℝ × ℝ × ℝ �
   return res
 
 theorem dwcx_eq_loop (A b Vmin ε p s o v : ℝ) :
-    dwcx A b Vmin ε p s o v = finiteLoop (intersectionStep A b Vmin ε) (p, s, o, v) := by
+    dwcx A b Vmin ε p s o v = (do
+      let (p, s, o, v) ← finiteLoop (intersectionStep A b Vmin ε) (p, s, o, v)
+      return ({ p, s, o, v } : IntersectionResult)) := by
   unfold dwcx finiteLoop
   simp only [← forIn_range_repeat]
-  simp only [intersectionStep, bind_assoc, pure_bind, Prod.mk.eta, bind_pure]
+  simp only [intersectionStep, bind_assoc, pure_bind, Prod.mk.eta]
 
 theorem intersection_step_run (A b Vmin ε p s o v a T : ℝ)
     (hA : 0 ≤ A) (hb : 0 ≤ b)
@@ -2896,12 +2860,9 @@ theorem dwcx_live :
     ∀ A b Vmin ε p s o v,
       (0 < A ∧ 0 < b ∧ 0 < ε ∧ 0 < Vmin) → (s = 0 ∧ Vmin ≤ v ∧ p < 0) →
         (∀ res ∈ SetM.run (dwcx A b Vmin ε p s o v),
-          let p_res := res.1
-          let o_res := res.2.2.1
-          p_res = 0 → o_res ≠ 0) ∧
+          res.p = 0 → res.o ≠ 0) ∧
         (∃ res ∈ SetM.run (dwcx A b Vmin ε p s o v),
-          let p_res := res.1
-          0 < p_res) := by
+          0 < res.p) := by
   intro A b Vmin ε p s o v hbounds hinit
   rcases hbounds with ⟨hA, hb, hε, hV⟩
   rcases hinit with ⟨rfl, hv, hp⟩
@@ -2931,9 +2892,11 @@ theorem dwcx_live :
       linarith
     obtain ⟨pr, or_, hcoast, hpr⟩ := intersection_coast_reach A b Vmin ε (A * ε) v
       hA.le hb.le hV hε hu hv nc (p + A / 2 * ε ^ 2) (owait + v * ε) (by linarith) hprogress
-    apply Exists.intro (pr, A * ε, or_, v)
+    apply Exists.intro { p := pr, s := A * ε, o := or_, v }
     apply And.intro ?_ hpr
     rw [dwcx_eq_loop]
-    exact reach_run _ _ _ (reach_trans _ _ _ _ hwait (reach_prepend _ _ _ _ hstep hcoast))
+    apply run_bind _ _ (pr, A * ε, or_, v) _
+      (reach_run _ _ _ (reach_trans _ _ _ _ hwait (reach_prepend _ _ _ _ hstep hcoast)))
+    exact Set.mem_singleton _
 
 end IJRR17

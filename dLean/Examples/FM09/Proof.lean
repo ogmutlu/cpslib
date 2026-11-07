@@ -169,9 +169,9 @@ def circStep (_p ω : ℝ) (_c x d y e : Vec2) :=
   trivial
 
 /-- Figure 5: compose the AC1 phase contracts with instantaneous entry. -/
-def ntrm' (p : ℝ) (x d y e : Vec2) : SetM (Vec2 × Vec2)
+def ntrm' (p : ℝ) (x d y e : Vec2) : SetM Result
     requires Separated p x y
-    ensures (xr, yr) => Separated p xr yr
+    ensures res => Separated p res.x res.y
     := do
   let mut (x, d, y, e) := (x, d, y, e)
   let n ← choose ℕ
@@ -181,16 +181,14 @@ def ntrm' (p : ℝ) (x d y e : Vec2) : SetM (Vec2 × Vec2)
     let (ω, c) ← agree
     (d, e) := entry_n ω c x y
     (x, d, y, e) ← circStep p ω c x d y e
-  return (x, y)
+  return { x, y }
 where finally
   | spec => all_goals simp_all [entry_n]
 
 theorem ntrm_safe :
     ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
       ∀ res ∈ SetM.run (ntrm p x d y e),
-        let x_res := res.1
-        let y_res := res.2
-        Separated p x_res y_res := by
+        Separated p res.x res.y := by
   intro p x d y e hpre res hrun
   exact (ntrm'.spec p x d y e).le_wp hpre res hrun
 
@@ -1207,9 +1205,9 @@ theorem entry_f_safe (p r ω : ℝ) (c x d y e : Vec2)
 
 /-- The full-state FTRM preserves separation and equal speeds, carrying the
 latest negotiated radius into the next iteration and the returned state. -/
-def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2 × ℝ)
+def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
     requires 0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
-    ensures (x, d, y, e, r) => 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
+    ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
     := do
   let mut (x, d, y, e) := (x₀, d₀, y₀, e₀)
   let mut r := r
@@ -1223,67 +1221,56 @@ def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM (Vec2 × Vec2 × Vec2 
     (x, d, y, e) ← unrestrictedEntry p r ω c x d y e
     (x, d, y, e) ← circ_f' p ω c x₀ d₀ y₀ e₀ x d y e
     (x, d, y, e) ← exit_f' p ω c x d y e
-  return (x, d, y, e, r)
+  return { x, d, y, e, r }
 
 @[spec] theorem ftrm_spec (p r : ℝ) (x d y e : Vec2) :
     ⦃0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄ ftrm p r x d y e
-    ⦃fun (xr, dr, yr, er, rr) => 0 ≤ rr ∧ ‖dr‖ = ‖er‖ ∧ Separated p xr yr⦄ := by
+    ⦃fun res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y⦄ := by
   exact ftrm'.spec p r x d y e
 
-def ftrmPrefix' (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM (Vec2 × Vec2)
+def ftrmPrefix' (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
     requires 0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
-    ensures (xr, yr) => Separated p xr yr
+    ensures res => Separated p res.x res.y
     := do
   let (x, d, y, e) ← free_safe p r x d y e
-  if k = 0 then return (x, y)
+  if k = 0 then return { x, y }
   let (ω, c, r) ← agree_f' p x d y e
-  if k = 1 then return (x, y)
+  if k = 1 then return { x, y }
   let (x₀, d₀, y₀, e₀) := (x, d, y, e)
   let (x, d, y, e) ← unrestrictedEntryStep p r ω c x d y e
-  if k = 2 then return (x, y)
+  if k = 2 then return { x, y }
   unless ‖x - c‖ ^ 2 = r ^ 2 do abort
   let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  if k = 3 then return (x, y)
+  if k = 3 then return { x, y }
   ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← safeExit p ω c x d y e
-  return (x, y)
+  return { x, y }
 
 @[spec] theorem ftrmPrefix_spec (p r : ℝ) (k : Fin 5) (x d y e : Vec2) :
     ⦃0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄ ftrmPrefix p r k x d y e
-    ⦃fun (xr, yr) => Separated p xr yr⦄ := by
+    ⦃fun res => Separated p res.x res.y⦄ := by
   exact ftrmPrefix'.spec p r k x d y e
 
 theorem ftrm_end_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ r > 0 ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrm p r x d y e),
-          let x_res := res.1
-          let y_res := res.2.2.1
-          Separated p x_res y_res := by
-  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ ⟨xr, dr, yr, er, rr⟩ hrun
+          Separated p res.x res.y := by
+  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ res hrun
   have hpost := (ftrm_spec p r x d y e).le_wp
-    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ (xr, dr, yr, er, rr) hrun
+    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ res hrun
   exact hpost.2.2
 
 theorem ftrm_throughout_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrm p r x d y e),
-        let x := st.1
-        let d := st.2.1
-        let y := st.2.2.1
-        let e := st.2.2.2.1
-        let r := st.2.2.2.2
-          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p r k x d y e),
-          let x_res := res.1
-          let y_res := res.2
-          Separated p x_res y_res := by
-  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ ⟨xi, di, yi, ei, ri⟩ hrun
-  dsimp only
-  intro k res hprefix
+          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := by
+  rintro p r x d y e ⟨hp, hde, hr, hsep⟩ st hrun k res hprefix
   obtain ⟨hri, hdi, hsafe⟩ := (ftrm_spec p r x d y e).le_wp
-    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ (xi, di, yi, ei, ri) hrun
-  exact (ftrmPrefix_spec p ri k xi di yi ei).le_wp ⟨hp, hri, hdi, hsafe⟩ res hprefix
+    ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ st hrun
+  exact (ftrmPrefix_spec p st.r k st.x st.d st.y st.e).le_wp ⟨hp, hri, hdi, hsafe⟩ res hprefix
 
 /-! ## Theorem 1: arbitrary modified entry procedures -/
 
@@ -1356,10 +1343,10 @@ def modifiedEntryPrefixSafe (entry : EntryProcedure) (bound : EntryTimeBound)
   return st
 
 def ftrmModified' (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2 × ℝ)
+    (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
     requires ModifiedEntryContract entry bound p ∧
       0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
-    ensures (x, d, y, e, r) => 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
+    ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
     := do
   let mut (x, d, y, e) := (x₀, d₀, y₀, e₀)
   let mut r := r
@@ -1374,7 +1361,7 @@ def ftrmModified' (entry : EntryProcedure) (bound : EntryTimeBound)
     (x, d, y, e) ← modifiedEntryCompleteSafe entry bound p r ω c x d y e
     (x, d, y, e) ← circ_f' p ω c x₀ d₀ y₀ e₀ x d y e
     (x, d, y, e) ← exit_f' p ω c x d y e
-  return (x, d, y, e, r)
+  return { x, d, y, e, r }
 
 theorem ftrmModified_eq (entry : EntryProcedure) (bound : EntryTimeBound)
     (p r : ℝ) (x d y e : Vec2) :
@@ -1385,29 +1372,29 @@ theorem ftrmModified_eq (entry : EntryProcedure) (bound : EntryTimeBound)
     ⦃ModifiedEntryContract entry bound p ∧
       0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄
     ftrmModified entry bound p r x d y e
-    ⦃fun (xr, dr, yr, er, rr) => 0 ≤ rr ∧ ‖dr‖ = ‖er‖ ∧ Separated p xr yr⦄ :=
+    ⦃fun res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y⦄ :=
   ftrmModified'.spec entry bound p r x d y e
 
 def ftrmModifiedPrefix' (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM (Vec2 × Vec2)
+    (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
     requires ModifiedEntryContract entry bound p ∧
       0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y
-    ensures (xr, yr) => Separated p xr yr
+    ensures res => Separated p res.x res.y
     := do
   let (x, d, y, e) ← free_safe p r x d y e
-  if k = 0 then return (x, y)
+  if k = 0 then return { x, y }
   let (ω, c, r) ← agree_f' p x d y e
-  if k = 1 then return (x, y)
+  if k = 1 then return { x, y }
   let (x₀, d₀, y₀, e₀) := (x, d, y, e)
   if k = 2 then
     let (x, _, y, _) ← modifiedEntryPrefixSafe entry bound p r ω c x d y e
-    return (x, y)
+    return { x, y }
   let (x, d, y, e) ← modifiedEntryCompleteSafe entry bound p r ω c x d y e
   let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  if k = 3 then return (x, y)
+  if k = 3 then return { x, y }
   ensure (exitReady x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← safeExit p ω c x d y e
-  return (x, y)
+  return { x, y }
 
 theorem ftrmModifiedPrefix_eq (entry : EntryProcedure) (bound : EntryTimeBound)
     (p r : ℝ) (k : Fin 5) (x d y e : Vec2) :
@@ -1419,7 +1406,7 @@ theorem ftrmModifiedPrefix_eq (entry : EntryProcedure) (bound : EntryTimeBound)
     ⦃ModifiedEntryContract entry bound p ∧
       0 ≤ p ∧ 0 ≤ r ∧ ‖d‖ = ‖e‖ ∧ Separated p x y⦄
     ftrmModifiedPrefix entry bound p r k x d y e
-    ⦃fun (xr, yr) => Separated p xr yr⦄ :=
+    ⦃fun res => Separated p res.x res.y⦄ :=
   ftrmModifiedPrefix'.spec entry bound p r k x d y e
 
 /-- Theorem 1 (modified entry): every complete modified FTRM run is safe whenever
@@ -1429,9 +1416,7 @@ theorem ftrm_modified_end_safe :
       ModifiedEntryContract entry bound p →
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrmModified entry bound p r x d y e),
-          let x_res := res.1
-          let y_res := res.2.2.1
-          Separated p x_res y_res := by
+          Separated p res.x res.y := by
   exact fun entry bound p r x d y e hcontract ⟨hp, hde, hr, hsep⟩ res hrun =>
     ((ftrmModified_spec entry bound p r x d y e).le_wp
       ⟨hcontract, hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ res hrun).2.2
@@ -1443,22 +1428,15 @@ theorem ftrm_modified_throughout_safe :
       ModifiedEntryContract entry bound p →
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrmModified entry bound p r x d y e),
-        let x := st.1
-        let d := st.2.1
-        let y := st.2.2.1
-        let e := st.2.2.2.1
-        let r := st.2.2.2.2
           ∀ k : Fin 5,
-          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p r k x d y e),
-            let x_res := res.1
-            let y_res := res.2
-            Separated p x_res y_res := by
+          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := by
   exact fun entry bound p r x d y e hcontract ⟨hp, hde, hr, hsep⟩
-      ⟨xi, di, yi, ei, ri⟩ hrun k res hprefix =>
+      st hrun k res hprefix =>
     let hs := (ftrmModified_spec entry bound p r x d y e).le_wp
       ⟨hcontract, hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩
-      (xi, di, yi, ei, ri) hrun
-    (ftrmModifiedPrefix_spec entry bound p ri k xi di yi ei).le_wp
+      st hrun
+    (ftrmModifiedPrefix_spec entry bound p st.r k st.x st.d st.y st.e).le_wp
       ⟨hcontract, hp, hs.1, hs.2.1, hs.2.2⟩ res hprefix
 
 end FM09
