@@ -189,7 +189,7 @@ theorem window_equivalent (v target l u height : ℝ) (hlu : l ≤ u) :
         simpa [nominal, not_lt_of_ge hu] using
           himp u ((le_max_left 0 _).trans hu) hlu le_rfl
 
-theorem A_nominal (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : Sense w)
+theorem A_nominal (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : (w = -1 ∨ w = 1))
     (hA : A alo t hn v w vlo) :
     2 * alo * (w * hn) = nominal (w * v) (w * vlo) (alo * t) := by
   have hs := A_scaled alo t hn v w vlo ha hw hA
@@ -201,7 +201,7 @@ theorem A_nominal (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : Sense w)
 /-- For positive closing speed the collision puck gives a closed time interval.
 Only the time coordinate and the height inequality are rescaled. -/
 theorem implicit_window (rp hp rv alo r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hrv : 0 < rv) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) :
     Limpl rp hp rv alo r h v w vlo ↔
       ∀ t, 0 ≤ t → alo * (r - rp) / rv ≤ t → t ≤ alo * (r + rp) / rv →
         2 * alo * (w * h + hp) < nominal (w * v) (w * vlo) t := by
@@ -327,7 +327,7 @@ theorem nominal_all_time (v target height : ℝ) :
     exact hmin.trans_le (nominal_global_min v target t hF ht)
 
 theorem implicit_stationary (rp hp alo r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) :
     Limpl rp hp 0 alo r h v w vlo ↔
       rp < |r| ∨ (0 ≤ w * vlo ∧ 2 * alo * (w * h + hp) < -(min 0 (w * v)) ^ 2) := by
   by_cases hsep : rp < |r|
@@ -383,7 +383,7 @@ theorem explicit_stationary (rp hp alo r h v w vlo : ℝ) (ha : 0 < alo) :
 /-- STTT Lemma 1 / repository `acasx.kyx`. -/
 theorem immediate_regions_equivalent :
     ∀ rp hp rv alo r h v w vlo,
-      Bounds rp hp rv alo → Sense w →
+      Bounds rp hp rv alo → (w = -1 ∨ w = 1) →
         (Lexpl rp hp rv alo r h v w vlo ↔ Limpl rp hp rv alo r h v w vlo) := by
   intro rp hp rv alo r h v w vlo hb hw
   by_cases hr : rv = 0
@@ -450,13 +450,13 @@ theorem delay_window_equivalent (ad V D l u H : ℝ) (had : 0 ≤ ad) (hD : 0 �
     · intro h
       exact hs D hD le_rfl h.1 h.2
 
-theorem delay_height_iff (ad t h v w hp : ℝ) (hw : Sense w) :
+theorem delay_height_iff (ad t h v w hp : ℝ) (hw : (w = -1 ∨ w = 1)) :
     w * (h - (-(w * ad) / 2 * t ^ 2 + v * t)) < -hp ↔
       2 * (w * h + hp) < delayPoly ad (w * v) t := by
   unfold delayPoly
   rcases hw with rfl | rfl <;> constructor <;> intro hx <;> nlinarith
 
-theorem delay_prefix_window (rp hp rv ad D r h v w : ℝ) (hw : Sense w) (hrv : 0 < rv) :
+theorem delay_prefix_window (rp hp rv ad D r h v w : ℝ) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) :
     delayPrefix rp hp rv ad D r h v w ↔
       ∀ t, 0 ≤ t → t ≤ D → (r - rp) / rv ≤ t → t ≤ (r + rp) / rv →
         2 * (w * h + hp) < delayPoly ad (w * v) t := by
@@ -484,7 +484,7 @@ def delayExplicit (ad V D l u H : ℝ) : Prop :=
   ((0 ≤ u ∧ u < D) → H < delayPoly ad V u)
 
 theorem explicit_delay_window (rp hp rv alo ad r h v w vlo d : ℝ)
-    (hb : Bounds rp hp rv alo) (hw : Sense w) (hrv : 0 < rv) :
+    (hb : Bounds rp hp rv alo) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) :
     Dexpl rp hp rv alo ad r h v w vlo d ↔
       delayExplicit ad (w * v) (max 0 d) ((r - rp) / rv) ((r + rp) / rv)
         (2 * (w * h + hp)) ∧
@@ -517,7 +517,7 @@ theorem explicit_delay_window (rp hp rv alo ad r h v w vlo d : ℝ)
   simp only [hquad, hzero, hc₀, hc₁, hc₂, and_assoc]
 
 theorem delayed_regions_pos (rp hp rv alo ad r h v w vlo d : ℝ)
-    (hb : Bounds rp hp rv alo) (had : 0 ≤ ad) (hw : Sense w) (hrv : 0 < rv) :
+    (hb : Bounds rp hp rv alo) (had : 0 ≤ ad) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) :
     Dexpl rp hp rv alo ad r h v w vlo d ↔ Dimpl rp hp rv alo ad r h v w vlo d := by
   have hterminal :
       Limpl rp hp rv alo (r - rv * max 0 d)
@@ -549,7 +549,7 @@ theorem delayed_regions_pos (rp hp rv alo ad r h v w vlo d : ℝ)
     exact ⟨⟨hwin.1, hwin.2.1, hwin.2.2.1⟩, hs⟩
 
 theorem delayed_regions_zero (rp hp alo ad r h v w vlo d : ℝ)
-    (hb : Bounds rp hp 0 alo) (had : 0 ≤ ad) (hw : Sense w) :
+    (hb : Bounds rp hp 0 alo) (had : 0 ≤ ad) (hw : (w = -1 ∨ w = 1)) :
     Dexpl rp hp 0 alo ad r h v w vlo d ↔ Dimpl rp hp 0 alo ad r h v w vlo d := by
   rw [Dexpl]
   rw [immediate_regions_equivalent _ _ _ _ _ _ _ _ _ hb hw,
@@ -587,7 +587,7 @@ theorem delayed_regions_zero (rp hp alo ad r h v w vlo d : ℝ)
 /-- STTT Lemma 2, Fig. 5; the explicit predicate is transcribed from the journal. -/
 theorem delayed_regions_equivalent :
     ∀ rp hp rv alo ad r h v w vlo d,
-      Bounds rp hp rv alo → 0 ≤ ad → Sense w →
+      Bounds rp hp rv alo → 0 ≤ ad → (w = -1 ∨ w = 1) →
         (Dexpl rp hp rv alo ad r h v w vlo d ↔ Dimpl rp hp rv alo ad r h v w vlo d) := by
   intro rp hp rv alo ad r h v w vlo d hb had hw
   by_cases hr : rv = 0
@@ -799,7 +799,7 @@ theorem upper_explicit_window (rp hp rv aup r h v w vup : ℝ)
     hur, hlr, hshift, hr0, false_or, false_and, and_comm]
 
 
-theorem upper_nominal_eq (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : Sense w)
+theorem upper_nominal_eq (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : (w = -1 ∨ w = 1))
     (hA : Aup aup t hn v w vup) :
     2 * aup * (w * hn) = nominal (w * v) (max (w * vup) (w * v)) (aup * t) := by
   have hM : max 0 (max (w * vup) (w * v) - w * v) = max 0 (w * (vup - v)) := by
@@ -819,7 +819,7 @@ theorem upper_nominal_eq (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : Sense w)
   split_ifs <;> ring
 
 theorem upper_implicit_window (rp hp rv aup r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hrv : 0 < rv) :
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) :
     Uimpl rp hp rv aup r h v w vup ↔
       ∀ t, 0 ≤ t → aup * (r - rp) / rv ≤ t → t ≤ aup * (r + rp) / rv →
         nominal (w * v) (max (w * vup) (w * v)) t < 2 * aup * (w * h - hp) := by
@@ -881,7 +881,7 @@ theorem upper_nominal_all_time (v F height : ℝ) :
     exact h.trans_lt hheight
 
 theorem upper_implicit_stationary (rp hp aup r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) :
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) :
     Uimpl rp hp 0 aup r h v w vup ↔
       rp < |r| ∨ (max (w * vup) (w * v) ≤ 0 ∧ hp < w * h) := by
   by_cases hsep : rp < |r|
@@ -932,7 +932,7 @@ theorem upper_explicit_stationary (rp hp aup r h v w vup : ℝ) :
 /-- STTT17 Lemma 3: the explicit and implicit two-sided safe regions agree. -/
 theorem two_sided_regions_equivalent :
     ∀ rp hp rv alo aup r h v w vlo vup,
-      Bounds rp hp rv alo → alo ≤ aup → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → (w = -1 ∨ w = 1) →
         (Cexpl rp hp rv alo aup r h v w vlo vup ↔
           Cimpl rp hp rv alo aup r h v w vlo vup) := by
   intro rp hp rv alo aup r h v w vlo vup hb ha hw
@@ -1109,7 +1109,7 @@ theorem explicit_bounded_lower_window (rp hp rv alo tl r h v w vlo : ℝ)
     hur, hlr, hcT, hkT, hshift, hr0, false_and, mul_neg, ← sub_eq_add_neg, and_assoc]
 
 theorem implicit_bounded_lower_window (rp hp rv alo tl r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hrv : 0 < rv) (htl : 0 ≤ tl) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) (htl : 0 ≤ tl) :
     LimplBounded rp hp rv alo tl 0 r h v w vlo ↔
       ∀ t, 0 ≤ t → t ≤ alo * tl → alo * (r - rp) / rv ≤ t → t ≤ alo * (r + rp) / rv →
         2 * alo * (w * h + hp) < nominal (w * v) (w * vlo) t := by
@@ -1164,7 +1164,7 @@ theorem nominal_bounded_time (v target T height : ℝ) (hT : 0 ≤ T) :
     · exact hend.trans_le (nominal_antitone v target t T hF ht htT)
 
 theorem implicit_bounded_lower_stationary (rp hp alo tl r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (htl : 0 ≤ tl) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (htl : 0 ≤ tl) :
     LimplBounded rp hp 0 alo tl 0 r h v w vlo ↔
       rp < |r| ∨
         ((0 ≤ w * vlo ∧ -(min 0 (w * v)) ≤ alo * tl →
@@ -1231,7 +1231,7 @@ theorem explicit_bounded_lower_stationary (rp hp alo tl r h v w vlo : ℝ)
 /-- Lower component needed for STTT17 Lemma 4. -/
 theorem lower_bounded_regions_equivalent :
     ∀ rp hp rv alo tl r h v w vlo,
-      Bounds rp hp rv alo → Sense w →
+      Bounds rp hp rv alo → (w = -1 ∨ w = 1) →
         (LexplBoundedHat rp hp rv alo tl r h v w vlo ↔
           LimplBounded rp hp rv alo tl 0 r h v w vlo) := by
   intro rp hp rv alo tl r h v w vlo hb hw
@@ -1444,7 +1444,7 @@ theorem explicit_bounded_upper_window (rp hp rv aup tl r h v w vup : ℝ)
     hur, hlr, hkT, hshift, hr0, false_and, and_assoc]
 
 theorem implicit_bounded_upper_window (rp hp rv aup tl r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hrv : 0 < rv) (htl : 0 ≤ tl) :
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hrv : 0 < rv) (htl : 0 ≤ tl) :
     UimplBounded rp hp rv aup tl 0 r h v w vup ↔
       ∀ t, 0 ≤ t → t ≤ aup * tl → aup * (r - rp) / rv ≤ t → t ≤ aup * (r + rp) / rv →
         nominal (w * v) (max (w * vup) (w * v)) t < 2 * aup * (w * h - hp) := by
@@ -1496,7 +1496,7 @@ theorem upper_nominal_bounded_time (v F T height : ℝ) (hF : v ≤ F) (hT : 0 �
     exact (upper_nominal_endpoints v F 0 t T hF le_rfl ht htT).trans_lt (max_lt hleft hT')
 
 theorem implicit_bounded_upper_stationary (rp hp aup tl r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (htl : 0 ≤ tl) :
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (htl : 0 ≤ tl) :
     UimplBounded rp hp 0 aup tl 0 r h v w vup ↔
       rp < |r| ∨
         (hp < w * h ∧
@@ -1558,7 +1558,7 @@ theorem explicit_bounded_upper_stationary (rp hp aup tl r h v w vup : ℝ)
 /-- Upper component needed for STTT17 Lemma 4. -/
 theorem upper_bounded_regions_equivalent :
     ∀ rp hp rv aup tl r h v w vup,
-      Bounds rp hp rv aup → Sense w →
+      Bounds rp hp rv aup → (w = -1 ∨ w = 1) →
         (UexplBoundedHat rp hp rv aup tl r h v w vup ↔
           UimplBounded rp hp rv aup tl 0 r h v w vup) := by
   intro rp hp rv aup tl r h v w vup hb hw
@@ -1595,7 +1595,7 @@ theorem upper_bounded_regions_equivalent :
 /-- STTT17 Lemma 4, with the documented corrections. -/
 theorem bounded_regions_equivalent :
     ∀ rp hp rv alo aup tl r h v w vlo vup,
-      Bounds rp hp rv alo → alo ≤ aup → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → (w = -1 ∨ w = 1) →
         (CexplBoundedHat rp hp rv alo aup tl r h v w vlo vup ↔
           CimplBounded rp hp rv alo aup tl 0 r h v w vlo vup) := by
   intro rp hp rv alo aup tl r h v w vlo vup hb ha hw
@@ -1621,7 +1621,7 @@ theorem upperEndpoint_iff_exit (aup tl hn vn v w vup : ℝ) (ht : 0 ≤ tl) :
 
 /-- A safe follow-up at horizontal overlap gives signed separation at its initial time. -/
 theorem followup_initial_separation (rp hp rv alo tl r h hn vn w target : ℝ)
-    (hb : Bounds rp hp rv alo) (hw : Sense w)
+    (hb : Bounds rp hp rv alo) (hw : (w = -1 ∨ w = 1))
     (hsafe : Lexpl rp hp rv alo (r - rv * tl) (h - hn) vn w target)
     (hcase : horizonCase rp rv tl r) : w * (h - hn) < -hp := by
   have hi := (immediate_regions_equivalent _ _ _ _ _ _ _ _ _ hb hw).mp hsafe
@@ -1633,7 +1633,7 @@ theorem followup_initial_separation (rp hp rv alo tl r h hn vn w target : ℝ)
 /-- STTT17 Lemma 5, lower part: safe follow-up makes case 15 redundant. -/
 theorem lower_endpoint_case_redundant :
     ∀ rp hp rv alo tl r h v w vlo vloEx,
-      Bounds rp hp rv alo → Sense w →
+      Bounds rp hp rv alo → (w = -1 ∨ w = 1) →
         let ex := lowerExit alo tl v w vlo
         Lexpl rp hp rv alo (r - rv * tl) (h - ex.1) ex.2 w vloEx →
           horizonCase rp rv tl r → bound15 hp alo tl h v w vlo := by
@@ -1652,14 +1652,14 @@ theorem lower_endpoint_case_redundant :
 /-- STTT17 Lemma 5, upper part: a safe reversal makes case 16 redundant. -/
 theorem upper_endpoint_case_redundant :
     ∀ rp hp rv alo aup tl r h v w vup vupEx,
-      Bounds rp hp rv alo → alo ≤ aup → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → (w = -1 ∨ w = 1) →
         let ex := upperExit aup tl v w vup
         Lexpl rp hp rv alo (r - rv * tl) (h - ex.1) ex.2 (-w) vupEx →
           horizonCase rp rv tl r → bound16 hp aup tl h v w vup := by
   intro rp hp rv alo aup tl r h v w vup vupEx hb _ha hw
   dsimp only
   intro hsafe hcase
-  have hw' : Sense (-w) := by rcases hw with rfl | rfl <;> norm_num [Sense]
+  have hw' : (-w = -1 ∨ -w = 1) := by rcases hw with rfl | rfl <;> norm_num
   have hs := followup_initial_separation _ _ _ _ _ _ _ _ _ _ _ hb hw' hsafe hcase
   by_cases ht : tl < maxI v w vup / aup
   · simp only [upperExit, ite_eq_left ht] at hs
@@ -1672,7 +1672,7 @@ theorem upper_endpoint_case_redundant :
 /-- STTT17 Lemma 5, both endpoint cases, with the paper's common assumptions. -/
 theorem endpoint_cases_redundant :
     ∀ rp hp rv alo aup tl r h v w vlo vloEx vup vupEx,
-      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → (w = -1 ∨ w = 1) →
         (let ex := lowerExit alo tl v w vlo
          Lexpl rp hp rv alo (r - rv * tl) (h - ex.1) ex.2 w vloEx →
            horizonCase rp rv tl r → bound15 hp alo tl h v w vlo) ∧
@@ -1686,11 +1686,11 @@ theorem endpoint_cases_redundant :
 /-- STTT17 Lemma 6, with corrected endpoints. -/
 theorem safeable_regions_equivalent :
     ∀ rp hp rv alo aup tl r h v w vlo vloEx vup vupEx,
-      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → (w = -1 ∨ w = 1) →
         (CexplSafeable rp hp rv alo aup tl r h v w vlo vloEx vup vupEx ↔
           CimplSafeable rp hp rv alo aup tl 0 r h v w vlo vloEx vup vupEx) := by
   intro rp hp rv alo aup tl r h v w vlo vloEx vup vupEx hb ha ht hw
-  have hw' : Sense (-w) := by rcases hw with rfl | rfl <;> norm_num [Sense]
+  have hw' : (-w = -1 ∨ -w = 1) := by rcases hw with rfl | rfl <;> norm_num
   have hlo := lower_bounded_regions_equivalent rp hp rv alo tl r h v w vlo hb hw
   have hup := upper_bounded_regions_equivalent rp hp rv aup tl r h v w vup
     ⟨hb.1, hb.2.1, hb.2.2.1, hb.2.2.2.trans_le ha⟩ hw

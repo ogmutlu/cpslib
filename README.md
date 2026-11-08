@@ -85,6 +85,37 @@ lake exe cache get
 lake build
 ```
 
+## Local literate documentation
+
+The local Verso prototype renders the FM09, FM11, and ACASX Model and Challenge files
+directly from their Lean source. Module comments and declaration docstrings appear
+as prose alongside the code; `literate.toml` controls the pages and their order.
+Verso is pinned to a revision matching the project's Lean 4.35 toolchain.
+
+Build the site from the repository root:
+
+```sh
+lake query :literateHtml
+```
+
+The command prints the generated site's directory, `.lake/build/literate-html`.
+Serve it locally and open <http://localhost:8000>:
+
+```sh
+python3 -m http.server 8000 --directory .lake/build/literate-html
+```
+
+Use the landing page or sidebar to navigate. In this pinned Verso revision,
+breadcrumb links to intermediate namespaces (such as `CPSLib.Examples.FM09`) do
+not have generated index pages when only their child modules are selected.
+
+The site uses a light palette regardless of browser preference, configured through
+Verso's native `[theme]` and `[theme.dark]` settings in `literate.toml`.
+
+This prototype does not change the existing GitHub Pages deployment. See the
+[Verso literate-programming guide](https://verso.lean-lang.org/doc/latest/Literate-Programming/)
+for configuration details.
+
 ## Check example proofs
 
 You can check the example proofs directly with Lean Comparator, included in the

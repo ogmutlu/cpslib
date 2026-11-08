@@ -130,7 +130,7 @@ theorem upperEndpoint_le_printed (aup τ hn vn v w vup : ℝ)
 /-- Using the printed upper height strengthens the model's nominal safeable condition. -/
 theorem printed_upper_safeable_implies_nominal
     (rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx : ℝ)
-    (ha : 0 < alo) (hw : Sense w)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1))
     (hsafe : CimplSafeableUpperPrinted rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx) :
     CimplSafeable rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx := by
   rcases hsafe with hlo | ⟨hbounded, hescape⟩
@@ -139,7 +139,7 @@ theorem printed_upper_safeable_implies_nominal
     refine ⟨hbounded, ?_⟩
     intro hn vn he
     obtain ⟨hp, hprinted, hheight⟩ := upperEndpoint_le_printed _ _ _ _ _ _ _ he
-    have hw' : Sense (-w) := by rcases hw with rfl | rfl <;> norm_num [Sense]
+    have hw' : (-w = -1 ∨ -w = 1) := by rcases hw with rfl | rfl <;> norm_num
     exact lower_region_mono _ _ _ _ _ (h - hp) (h - hn) vn vn (-w) vupEx ha hw'
       (by nlinarith) le_rfl (hescape hp vn hprinted)
 
@@ -212,7 +212,7 @@ theorem printed_stationary_boundary_counterexample :
       norm_num [lowerEndpoint, maxI] at he
       obtain ⟨rfl, rfl⟩ := he
       apply (immediate_regions_equivalent _ _ _ _ _ _ _ _ _
-        (by norm_num [Bounds]) (by norm_num [Sense])).mp
+        (by norm_num [Bounds]) (by norm_num)).mp
       norm_num [Lexpl, maxI]
   · norm_num [Printed.CexplSafeable, Printed.LexplBounded, Printed.UexplBounded,
       Printed.lowerExit, Printed.upperExit, LexplBounded, UexplBounded, Lexpl, maxI]

@@ -1,0 +1,103 @@
+hide_commands = ["import", "open", "set_option"]
+docstrings_as_text = true
+
+[metadata]
+title = "CPSLib Case Studies"
+description = "Hybrid-system models and their safety specifications"
+
+# Keep Verso's light palette even when the browser prefers dark mode.
+[theme]
+code_color = "#24292f"
+
+[theme.dark]
+text_color = "#333"
+structure_color = "#333"
+background_color = "#ffffff"
+surface_color = "#f8f9fa"
+border_color = "#e9ecef"
+link_color = "#0066cc"
+link_visited_color = "#551a8b"
+link_hover_bg = "#e3f2fd"
+muted_color = "#6c757d"
+current_bg = "#0066cc"
+current_fg = "white"
+breadcrumb_color = "#495057"
+code_box_background_color = "#f6f8fa"
+code_box_border_color = "#e1e4e8"
+blockquote_border_color = "#dfe2e5"
+blockquote_color = "#6a737d"
+inline_code_bg = "#f0f2f4"
+docstring_border_color = "#ddd"
+imports_summary_color = "#586069"
+output_color = "#555"
+copy_button_bg = "#e9ecef"
+copy_button_border = "#d1d5db"
+copy_button_color = "#586069"
+copy_button_hover_bg = "#d1d5db"
+copy_button_copied_color = "#22863a"
+hamburger_bg = "#fff"
+hamburger_border = "#dee2e6"
+hamburger_bar_color = "#333"
+code_hover_bg_color = "#eeeeee"
+tooltip_color = "black"
+tooltip_bg_color = "#e5e5e5"
+tooltip_border_color = "black"
+tooltip_separator_color = "#ccc"
+code_info_hover_bg_color = "#cfe2ff"
+info_indicator_color = "#0066cc"
+message_info_color = "currentcolor"
+tooltip_info_border_color = "#cfe2ff"
+code_warning_hover_bg_color = "#fff3cd"
+warning_indicator_color = "#b8860b"
+message_warning_color = "currentcolor"
+tooltip_warning_border_color = "#fff3cd"
+code_error_hover_bg_color = "#f8d7da"
+error_indicator_color = "#dc3545"
+message_error_color = "#cc0000"
+tooltip_error_border_color = "#f8d7da"
+tactic_state_color = "black"
+tactic_state_bg_color = "white"
+tactic_state_border_color = "#888888"
+selected_color = "#def"
+code_color = "#24292f"
+
+[[targets]]
+module = "CPSLib.Examples.FM09.Model"
+
+[[targets]]
+module = "CPSLib.Examples.FM09.Challenge"
+
+[[targets]]
+module = "CPSLib.Examples.FM11.Model"
+
+[[targets]]
+module = "CPSLib.Examples.FM11.Challenge"
+
+[[targets]]
+module = "CPSLib.Examples.ACASX.Model"
+
+[[targets]]
+module = "CPSLib.Examples.ACASX.Challenge"
+
+[order_children]
+"CPSLib.Examples.FM09" = ["CPSLib.Examples.FM09.Model", "CPSLib.Examples.FM09.Challenge"]
+"CPSLib.Examples.FM11" = ["CPSLib.Examples.FM11.Model", "CPSLib.Examples.FM11.Challenge"]
+"CPSLib.Examples.ACASX" = ["CPSLib.Examples.ACASX.Model", "CPSLib.Examples.ACASX.Challenge"]
+
+[modules."CPSLib.Examples.FM09.Model"]
+title = "FM09: Roundabout models"
+
+[modules."CPSLib.Examples.FM09.Challenge"]
+title = "FM09: Safety specifications"
+
+[modules."CPSLib.Examples.FM11.Model"]
+title = "FM11: Highway models"
+
+[modules."CPSLib.Examples.FM11.Challenge"]
+title = "FM11: Safety specifications"
+
+[modules."CPSLib.Examples.ACASX.Model"]
+title = "ACASX: Aircraft collision avoidance"
+
+[modules."CPSLib.Examples.ACASX.Challenge"]
+title = "ACASX: Safety specifications"

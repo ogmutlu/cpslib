@@ -55,7 +55,7 @@ theorem A_exists (alo t v w vlo : ℝ) (ht : 0 ≤ t) : ∃ hn, A alo t hn v w v
   · exact ⟨w * alo / 2 * t ^ 2 + v * t, Or.inl ⟨ht, h, rfl⟩⟩
   · exact ⟨vlo * t - w * maxI v w vlo ^ 2 / (2 * alo), Or.inr ⟨le_of_not_gt h, rfl⟩⟩
 
-theorem A_scaled (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : Sense w)
+theorem A_scaled (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : (w = -1 ∨ w = 1))
     (hA : A alo t hn v w vlo) :
     2 * alo * (w * hn) = 2 * (w * vlo) * (alo * t) +
       lowerRelative (w * (vlo - v)) (alo * t) := by
@@ -71,7 +71,7 @@ theorem A_scaled (alo t hn v w vlo : ℝ) (ha : 0 < alo) (hw : Sense w)
 /-- At time `T + tn`, the original nominal height is below the actual displacement
 at `T` plus the new nominal height. This is the archive's shifted-time argument. -/
 theorem nominal_dominates (alo T tn oldHeight newHeight v w vlo a : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hT : 0 ≤ T) (htn : 0 ≤ tn)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T) (htn : 0 ≤ tn)
     (hstart : advisoryLo alo v w vlo a) (hfinish : advisoryLo alo (v + a * T) w vlo a)
     (hold : A alo (T + tn) oldHeight v w vlo)
     (hnew : A alo tn newHeight (v + a * T) w vlo) :
@@ -90,7 +90,7 @@ theorem nominal_dominates (alo T tn oldHeight newHeight v w vlo a : ℝ)
     A_scaled alo tn newHeight (v + a * T) w vlo ha hw hnew]
 
 theorem lower_kinematic_preserved (rp hp rv alo r h v w vlo a T : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hT : 0 ≤ T)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T)
     (hstart : advisoryLo alo v w vlo a) (hfinish : advisoryLo alo (v + a * T) w vlo a)
     (hsafe : Limpl rp hp rv alo r h v w vlo) :
     Limpl rp hp rv alo (r - rv * T) (h - (a / 2 * T ^ 2 + v * T)) (v + a * T) w vlo := by
@@ -155,7 +155,7 @@ def lowerStep (_rp _hp rv alo w vlo a r h v : ℝ) :=
   evolve (motion rv a) (lowerDomain alo w vlo a) (r, h, v)
 
 @[spec] theorem lowerStep_spec (rp hp rv alo w vlo a r h v : ℝ) :
-    ⦃0 < alo ∧ Sense w ∧ Limpl rp hp rv alo r h v w vlo⦄
+    ⦃0 < alo ∧ (w = -1 ∨ w = 1) ∧ Limpl rp hp rv alo r h v w vlo⦄
     lowerStep rp hp rv alo w vlo a r h v
     ⦃fun (r, h, v) => Limpl rp hp rv alo r h v w vlo⦄ := by
   constructor
@@ -172,11 +172,11 @@ def lowerStep (_rp _hp rv alo w vlo a r h v : ℝ) :=
     exact hdom
   · exact hsafe
 
-@[spec] theorem sense_spec : ⦃True⦄ sense ⦃Sense⦄ := by
+@[spec] theorem sense_spec : ⦃True⦄ sense ⦃fun w => (w = -1 ∨ w = 1)⦄ := by
   constructor
   intro _
   rw [SetM.wp_iff_run]
-  simp [sense, chooseS, SetM.run, Sense]
+  simp [sense, chooseS, SetM.run]
 
 @[spec] theorem choice_spec {α : Type} (p q : SetM α) (Q : α → Prop) :
     ⦃wp p Q estack⟨⟩ ∧ wp q Q estack⟨⟩⦄ p <|> q ⦃Q⦄ := by
@@ -187,13 +187,13 @@ def lowerStep (_rp _hp rv alo w vlo a r h v : ℝ) :=
 /-- Proof-only annotation of the original immediate-response loop.
 The erased program is definitionally equal to `immediate`; see `immediate_eq`. -/
 def immediate' (rp hp rv alo r h v w vlo : ℝ) : SetM Result
-    requires 0 < alo ∧ Sense w ∧ Limpl rp hp rv alo r h v w vlo
-    ensures res => Sense res.w ∧ Limpl rp hp rv alo res.r res.h res.v res.w res.vlo
+    requires 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Limpl rp hp rv alo r h v w vlo
+    ensures res => (res.w = -1 ∨ res.w = 1) ∧ Limpl rp hp rv alo res.r res.h res.v res.w res.vlo
     := do
   let mut (r, h, v, w, vlo) := (r, h, v, w, vlo)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ Sense w ∧ Limpl rp hp rv alo r h v w vlo do
+      invariant _pref _suff => 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Limpl rp hp rv alo r h v w vlo do
     let bool ← choose Bool
     if bool then
       w ← sense
@@ -211,7 +211,7 @@ theorem A_zero (alo v w vlo : ℝ) (ha : 0 < alo) : A alo 0 0 v w vlo := by
     exact ⟨le_rfl, div_pos (lt_of_le_of_ne (le_max_left 0 _) (Ne.symm hm)) ha, by ring⟩
 
 theorem lower_implies_noNMAC (rp hp rv alo r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hsafe : Limpl rp hp rv alo r h v w vlo) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hsafe : Limpl rp hp rv alo r h v w vlo) :
     NoNMAC rp hp r h := by
   rcases hsafe 0 0 0 ⟨by ring, A_zero alo v w vlo ha⟩ with hsep | hsep
   · left
@@ -226,7 +226,7 @@ theorem immediate_eq (rp hp rv alo r h v w vlo : ℝ) :
 /-- STTT Theorem 1; preserve the stronger region postcondition of `acasx.kyx`. -/
 theorem immediate_safe :
     ∀ rp hp rv alo r h v w vlo,
-      Bounds rp hp rv alo → Sense w → Limpl rp hp rv alo r h v w vlo →
+      Bounds rp hp rv alo → (w = -1 ∨ w = 1) → Limpl rp hp rv alo r h v w vlo →
         ∀ res ∈ SetM.run (immediate rp hp rv alo r h v w vlo),
           NoNMAC rp hp res.r res.h ∧
             Limpl rp hp rv alo res.r res.h res.v res.w res.vlo := by
@@ -287,7 +287,7 @@ theorem Aup_exists (aup t v w vup : ℝ) (ht : 0 ≤ t) :
   · exact ⟨w * max (w * vup) (w * v) * t - w * maxI v w vup ^ 2 / (2 * aup),
       Or.inr ⟨le_of_not_gt h, rfl⟩⟩
 
-theorem Aup_scaled (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : Sense w)
+theorem Aup_scaled (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : (w = -1 ∨ w = 1))
     (hA : Aup aup t hn v w vup) :
     2 * aup * (w * hn) = 2 * (w * v) * (aup * t) +
       upperGain (w * (vup - v)) (aup * t) := by
@@ -306,7 +306,7 @@ theorem Aup_scaled (aup t hn v w vup : ℝ) (ha : 0 < aup) (hw : Sense w)
     rcases hw with rfl | rfl <;> simp only [maxI] <;> field_simp <;> ring
 
 theorem upper_nominal_dominates (aup T tn oldHeight newHeight v w vup a : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hT : 0 ≤ T) (htn : 0 ≤ tn)
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T) (htn : 0 ≤ tn)
     (hstart : advisoryUp aup v w vup a)
     (hfinish : advisoryUp aup (v + a * T) w vup a)
     (hold : Aup aup (T + tn) oldHeight v w vup)
@@ -330,7 +330,7 @@ theorem upper_nominal_dominates (aup T tn oldHeight newHeight v w vup a : ℝ)
     Aup_scaled aup tn newHeight (v + a * T) w vup ha hw hnew]
 
 theorem upper_kinematic_preserved (rp hp rv aup r h v w vup a T : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hT : 0 ≤ T)
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T)
     (hstart : advisoryUp aup v w vup a)
     (hfinish : advisoryUp aup (v + a * T) w vup a)
     (hsafe : Uimpl rp hp rv aup r h v w vup) :
@@ -350,7 +350,7 @@ def twoSidedStep (_rp _hp rv alo aup w vlo vup a r h v : ℝ) :=
   evolve (motion rv a) (twoSidedDomain alo aup w vlo vup a) (r, h, v)
 
 @[spec] theorem twoSidedStep_spec (rp hp rv alo aup w vlo vup a r h v : ℝ) :
-    ⦃0 < alo ∧ 0 < aup ∧ Sense w ∧ Cimpl rp hp rv alo aup r h v w vlo vup⦄
+    ⦃0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ Cimpl rp hp rv alo aup r h v w vlo vup⦄
     twoSidedStep rp hp rv alo aup w vlo vup a r h v
     ⦃fun (r, h, v) => Cimpl rp hp rv alo aup r h v w vlo vup⦄ := by
   constructor
@@ -373,14 +373,14 @@ def twoSidedStep (_rp _hp rv alo aup w vlo vup a r h v : ℝ) :=
 /-- The newer archive reissues both targets. This annotated loop erases to the
 original program by `rfl`, including the retain-advisory alternative. -/
 def twoSided' (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM TwoSidedResult
-    requires 0 < alo ∧ 0 < aup ∧ Sense w ∧ Cimpl rp hp rv alo aup r h v w vlo vup
-    ensures res => Sense res.w ∧
+    requires 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ Cimpl rp hp rv alo aup r h v w vlo vup
+    ensures res => (res.w = -1 ∨ res.w = 1) ∧
       Cimpl rp hp rv alo aup res.r res.h res.v res.w res.vlo res.vup
     := do
   let mut (r, h, v, w, vlo, vup) := (r, h, v, w, vlo, vup)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ Sense w ∧
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧
         Cimpl rp hp rv alo aup r h v w vlo vup do
     let bool ← choose Bool
     if bool then
@@ -400,7 +400,7 @@ theorem Aup_zero (aup v w vup : ℝ) (ha : 0 < aup) : Aup aup 0 0 v w vup := by
     exact ⟨le_rfl, div_pos (lt_of_le_of_ne (le_max_left 0 _) (Ne.symm hm)) ha, by ring⟩
 
 theorem upper_implies_noNMAC (rp hp rv aup r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hsafe : Uimpl rp hp rv aup r h v w vup) :
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hsafe : Uimpl rp hp rv aup r h v w vup) :
     NoNMAC rp hp r h := by
   rcases hsafe 0 0 0 ⟨by ring, Aup_zero aup v w vup ha⟩ with hsep | hsep
   · left
@@ -417,7 +417,7 @@ theorem twoSided_eq (rp hp rv alo aup r h v w vlo vup : ℝ) :
 Both targets can change; `alo ≤ aup` is required. The archive postcondition is NoNMAC. -/
 theorem two_sided_safe :
     ∀ rp hp rv alo aup r h v w vlo vup,
-      Bounds rp hp rv alo → alo ≤ aup → Sense w →
+      Bounds rp hp rv alo → alo ≤ aup → (w = -1 ∨ w = 1) →
       Cimpl rp hp rv alo aup r h v w vlo vup →
         ∀ res ∈ SetM.run (twoSided rp hp rv alo aup r h v w vlo vup),
           NoNMAC rp hp res.r res.h := by
@@ -465,7 +465,7 @@ theorem clocked_solution (rv a r h v clock T : ℝ) (D : ℝ × ℝ × ℝ × �
 /-- The same shifted-time lower comparison, restricted to the remaining horizon.
 No initial clock lower bound or `alo ≤ aup` assumption is needed. -/
 theorem lower_bounded_preserved (rp hp rv alo tl clock r h v w vlo a T : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hT : 0 ≤ T)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T)
     (hstart : advisoryLo alo v w vlo a) (hfinish : advisoryLo alo (v + a * T) w vlo a)
     (hsafe : LimplBounded rp hp rv alo tl clock r h v w vlo) :
     LimplBounded rp hp rv alo tl (clock + T) (r - rv * T)
@@ -482,7 +482,7 @@ theorem lower_bounded_preserved (rp hp rv alo tl clock r h v w vlo a T : ℝ)
       htn hstart hfinish hold hA]
 
 theorem upper_bounded_preserved (rp hp rv aup tl clock r h v w vup a T : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hT : 0 ≤ T)
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T)
     (hstart : advisoryUp aup v w vup a)
     (hfinish : advisoryUp aup (v + a * T) w vup a)
     (hsafe : UimplBounded rp hp rv aup tl clock r h v w vup) :
@@ -503,7 +503,7 @@ def boundedStep (_rp _hp rv alo aup tl w vlo vup a r h v clock : ℝ) :=
   evolve (clockedMotion rv a) (clockedDomain alo aup tl w vlo vup a) (r, h, v, clock)
 
 @[spec] theorem boundedStep_spec (rp hp rv alo aup tl w vlo vup a r h v clock : ℝ) :
-    ⦃0 < alo ∧ 0 < aup ∧ Sense w ∧ CimplBounded rp hp rv alo aup tl clock r h v w vlo vup⦄
+    ⦃0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ CimplBounded rp hp rv alo aup tl clock r h v w vlo vup⦄
     boundedStep rp hp rv alo aup tl w vlo vup a r h v clock
     ⦃fun (r, h, v, clock) => (clock ≤ tl ∨ tl < 0) ∧
       CimplBounded rp hp rv alo aup tl clock r h v w vlo vup⦄ := by
@@ -527,7 +527,7 @@ def boundedStep (_rp _hp rv alo aup tl w vlo vup a r h v clock : ℝ) :=
       haup hw hT hstart.2.2 hfinish.2.2 hsafe)
 
 theorem lower_bounded_noNMAC (rp hp rv alo tl clock r h v w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (ht : clock ≤ tl ∨ tl < 0)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
     (hsafe : LimplBounded rp hp rv alo tl clock r h v w vlo) : NoNMAC rp hp r h := by
   have hval := hsafe 0 0 0 ⟨ht.imp (by intro hx; linarith) id, by ring, A_zero alo v w vlo ha⟩
   rcases hval with hsep | hsep
@@ -538,7 +538,7 @@ theorem lower_bounded_noNMAC (rp hp rv alo tl clock r h v w vlo : ℝ)
     all_goals linarith [le_abs_self h, neg_le_abs h]
 
 theorem upper_bounded_noNMAC (rp hp rv aup tl clock r h v w vup : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (ht : clock ≤ tl ∨ tl < 0)
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
     (hsafe : UimplBounded rp hp rv aup tl clock r h v w vup) : NoNMAC rp hp r h := by
   have hval := hsafe 0 0 0 ⟨ht.imp (by intro hx; linarith) id, by ring, Aup_zero aup v w vup ha⟩
   rcases hval with hsep | hsep
@@ -571,7 +571,7 @@ theorem lowerRelative_antitone_gap (g₀ g₁ t : ℝ) (ht : 0 ≤ t) (hg : g₁
 /-- The supplement's escape propagation: lowering signed relative altitude and
 increasing signed initial velocity preserves a lower escape region. -/
 theorem lower_region_mono (rp hp rv alo r h₀ h₁ v₀ v₁ w vlo : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hh : w * h₁ ≤ w * h₀) (hv : w * v₀ ≤ w * v₁)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hh : w * h₁ ≤ w * h₀) (hv : w * v₀ ≤ w * v₁)
     (hsafe : Limpl rp hp rv alo r h₀ v₀ w vlo) :
     Limpl rp hp rv alo r h₁ v₁ w vlo := by
   intro t rn hn ⟨hrn, hA⟩
@@ -592,7 +592,7 @@ theorem lowerEndpoint_A (alo τ hn vn v w vlo : ℝ)
   · exact Or.inr ⟨hs, hh⟩
 
 theorem lowerEndpoint_velocity (alo τ hn vn v w vlo : ℝ) (ha : 0 < alo)
-    (hw : Sense w) (ht : 0 ≤ τ) (he : lowerEndpoint alo τ hn vn v w vlo) :
+    (hw : (w = -1 ∨ w = 1)) (ht : 0 ≤ τ) (he : lowerEndpoint alo τ hn vn v w vlo) :
     w * vn = min (w * vlo) (w * v + alo * τ) := by
   have hw2 : w * w = 1 := by rcases hw with rfl | rfl <;> norm_num
   rcases he with ⟨_, hs, _, hv⟩ | ⟨hs, _, hv⟩
@@ -609,7 +609,7 @@ theorem lowerEndpoint_velocity (alo τ hn vn v w vlo : ℝ) (ha : 0 < alo)
     rw [min_eq_left (by nlinarith), hv]
 
 theorem lowerEndpoint_velocity_compare (alo T q oldH oldV newH newV v w vlo a : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hT : 0 ≤ T) (hq : 0 ≤ q)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T) (hq : 0 ≤ q)
     (hfinish : advisoryLo alo (v + a * T) w vlo a)
     (hold : lowerEndpoint alo (T + q) oldH oldV v w vlo)
     (hnew : lowerEndpoint alo q newH newV (v + a * T) w vlo) : w * oldV ≤ w * newV := by
@@ -621,7 +621,7 @@ theorem lowerEndpoint_velocity_compare (alo T q oldH oldV newH newV v w vlo a : 
   · apply min_le_min_left
     nlinarith [mul_nonneg (sub_nonneg.mpr hf) hT]
 
-theorem upper_speed (v w vup : ℝ) (hw : Sense w) :
+theorem upper_speed (v w vup : ℝ) (hw : (w = -1 ∨ w = 1)) :
     v + w * maxI v w vup = w * max (w * vup) (w * v) := by
   have hm : max (w * vup) (w * v) = w * v + maxI v w vup := by
     unfold maxI
@@ -632,14 +632,14 @@ theorem upper_speed (v w vup : ℝ) (hw : Sense w) :
   rw [hm]
   rcases hw with rfl | rfl <;> ring
 
-theorem upperEndpoint_Aup (aup τ hn vn v w vup : ℝ) (_hw : Sense w)
+theorem upperEndpoint_Aup (aup τ hn vn v w vup : ℝ) (_hw : (w = -1 ∨ w = 1))
     (he : upperEndpoint aup τ hn vn v w vup) : Aup aup τ hn v w vup := by
   rcases he with ⟨ht, hs, hh, _⟩ | ⟨hs, hh, _⟩
   · exact Or.inl ⟨ht, hs, hh⟩
   · exact Or.inr ⟨hs, hh⟩
 
 theorem upperEndpoint_velocity (aup τ hn vn v w vup : ℝ) (ha : 0 < aup)
-    (hw : Sense w) (_ht : 0 ≤ τ) (he : upperEndpoint aup τ hn vn v w vup) :
+    (hw : (w = -1 ∨ w = 1)) (_ht : 0 ≤ τ) (he : upperEndpoint aup τ hn vn v w vup) :
     w * vn = min (w * v + aup * τ) (max (w * vup) (w * v)) := by
   have hw2 : w * w = 1 := by rcases hw with rfl | rfl <;> norm_num
   have hm : max (w * vup) (w * v) = w * v + maxI v w vup := by
@@ -655,7 +655,7 @@ theorem upperEndpoint_velocity (aup τ hn vn v w vup : ℝ) (ha : 0 < aup)
     rcases hw with rfl | rfl <;> ring
 
 theorem upperEndpoint_velocity_compare (aup T q oldH oldV newH newV v w vup a : ℝ)
-    (ha : 0 < aup) (hw : Sense w) (hT : 0 ≤ T) (hq : 0 ≤ q)
+    (ha : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T) (hq : 0 ≤ q)
     (hstart : advisoryUp aup v w vup a)
     (hfinish : advisoryUp aup (v + a * T) w vup a)
     (hold : upperEndpoint aup (T + q) oldH oldV v w vup)
@@ -689,7 +689,7 @@ theorem upperEndpoint_exists (aup τ v w vup : ℝ) (ht : 0 ≤ τ) :
 nominal endpoint height and velocity comparisons, separately for each sense. -/
 theorem safeable_kinematic_preserved
     (rp hp rv alo aup tl clock vloEx vupEx r h v w vlo vup a T : ℝ)
-    (ha : 0 < alo) (haup : 0 < aup) (hw : Sense w) (hT : 0 ≤ T)
+    (ha : 0 < alo) (haup : 0 < aup) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T)
     (horizon : clock + T ≤ tl)
     (hstart : advisoryLo alo v w vlo a ∧ advisoryUp aup v w vup a)
     (hfinish : advisoryLo alo (v + a * T) w vlo a ∧ advisoryUp aup (v + a * T) w vup a)
@@ -728,7 +728,7 @@ theorem safeable_kinematic_preserved
       (upperEndpoint_Aup _ _ _ _ _ _ _ hw hnew)
     have hv := upperEndpoint_velocity_compare aup T (tl - (clock + T))
       oldH oldV newH newV v w vup a haup hw hT hq hstart.2 hfinish.2 hold' hnew
-    have hwneg : Sense (-w) := by rcases hw with rfl | rfl <;> norm_num [Sense]
+    have hwneg : (-w = -1 ∨ -w = 1) := by rcases hw with rfl | rfl <;> norm_num
     rw [show r - rv * T - rv * (tl - (clock + T)) = r - rv * (tl - clock) by ring]
     exact lower_region_mono rp hp rv alo _ (h - oldH)
       (h - (a / 2 * T ^ 2 + v * T) - newH) oldV newV (-w) vupEx ha hwneg
@@ -739,7 +739,7 @@ def safeableStep (_rp _hp rv alo aup tl _vloEx _vupEx w vlo vup a r h v clock : 
 
 @[spec] theorem safeableStep_spec
     (rp hp rv alo aup tl vloEx vupEx w vlo vup a r h v clock : ℝ) :
-    ⦃0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ Sense w ∧
+    ⦃0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧
       CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx⦄
     safeableStep rp hp rv alo aup tl vloEx vupEx w vlo vup a r h v clock
     ⦃fun (r, h, v, clock) => (clock ≤ tl ∨ tl < 0) ∧
@@ -820,7 +820,7 @@ theorem delayed_nonpos (rp hp rv alo ad r h v w vlo d : ℝ) (ha : 0 < alo) (hd 
     simpa only [mul_zero, zero_pow (by decide : 2 ≠ 0), sub_zero, add_zero] using
       hs 0 0 0 ⟨by ring, A_zero alo v w vlo ha⟩
 
-theorem delay_height_compare (ad T q v w a : ℝ) (hw : Sense w)
+theorem delay_height_compare (ad T q v w a : ℝ) (hw : (w = -1 ∨ w = 1))
     (hT : 0 ≤ T) (hq : 0 ≤ q) (hacc : -ad ≤ w * a) :
     w * (-(w * ad) / 2 * (T + q) ^ 2 + v * (T + q)) ≤
       w * (a / 2 * T ^ 2 + v * T + (-(w * ad) / 2 * q ^ 2 + (v + a * T) * q)) := by
@@ -828,7 +828,7 @@ theorem delay_height_compare (ad T q v w a : ℝ) (hw : Sense w)
     (show 0 ≤ T + 2 * q by linarith)
   rcases hw with rfl | rfl <;> norm_num at hprod ⊢ <;> nlinarith
 
-theorem delay_actual_bounds (ad T v w a : ℝ) (hw : Sense w)
+theorem delay_actual_bounds (ad T v w a : ℝ) (hw : (w = -1 ∨ w = 1))
     (hT : 0 ≤ T) (hacc : -ad ≤ w * a) :
     w * (-(w * ad) / 2 * T ^ 2 + v * T) ≤ w * (a / 2 * T ^ 2 + v * T) ∧
       w * (v - w * ad * T) ≤ w * (v + a * T) := by
@@ -841,7 +841,7 @@ theorem delay_actual_bounds (ad T v w a : ℝ) (hw : Sense w)
 /-- While delay remains, the acceleration test bounds both future delay heights
 and the resolution's starting velocity. Propagate the shifted lower region. -/
 theorem delayed_before_preserved (rp hp rv alo ad r h v w vlo d a T : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hT : 0 ≤ T) (hTd : T ≤ d)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hT : 0 ≤ T) (hTd : T ≤ d)
     (hacc : -ad ≤ w * a) (hsafe : Dimpl rp hp rv alo ad r h v w vlo d) :
     Dimpl rp hp rv alo ad (r - rv * T) (h - (a / 2 * T ^ 2 + v * T))
       (v + a * T) w vlo (d - T) := by
@@ -870,7 +870,7 @@ theorem delayed_before_preserved (rp hp rv alo ad r h v w vlo d a T : ℝ)
 /-- Once delay expires, first compare the actual state at expiry with the delay
 endpoint, then apply immediate preservation over the remaining actual motion. -/
 theorem delayed_after_preserved (rp hp rv alo ad r h v w vlo d a T : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hTd : max 0 d ≤ T)
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hTd : max 0 d ≤ T)
     (hacc : -ad ≤ w * a)
     (hstart : advisoryLo alo (v + a * max 0 d) w vlo a)
     (hfinish : advisoryLo alo (v + a * T) w vlo a)
@@ -926,7 +926,7 @@ def delayedStep (_rp _hp rv alo _ad ε w vlo a r h v d : ℝ) :=
   evolve (delayedMotion rv a) (delayedDomain alo ε w vlo a) (r, h, v, d, 0)
 
 @[spec] theorem delayedStep_spec (rp hp rv alo ad ε w vlo a r h v d : ℝ) :
-    ⦃0 < alo ∧ Sense w ∧ -ad ≤ w * a ∧ Dimpl rp hp rv alo ad r h v w vlo d⦄
+    ⦃0 < alo ∧ (w = -1 ∨ w = 1) ∧ -ad ≤ w * a ∧ Dimpl rp hp rv alo ad r h v w vlo d⦄
     delayedStep rp hp rv alo ad ε w vlo a r h v d
     ⦃fun (r, h, v, d, _) => Dimpl rp hp rv alo ad r h v w vlo d⦄ := by
   constructor
@@ -966,14 +966,14 @@ def delayChoice (δ ε : ℝ) : SetM ℝ := chooseS {δ, δ + ε}
 /-- Intrinsic annotation of the selected delayed kyx controller. The two delay
 choices remain exactly `δ` and `δ+ε`; the wrapper equality is proved by `rfl`. -/
 def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM DelayedResult
-    requires 0 < alo ∧ Sense w ∧ Dimpl rp hp rv alo ad r h v w vlo d
-    ensures res => Sense res.w ∧
+    requires 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Dimpl rp hp rv alo ad r h v w vlo d
+    ensures res => (res.w = -1 ∨ res.w = 1) ∧
       Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d
     := do
   let mut (r, h, v, w, vlo, d) := (r, h, v, w, vlo, d)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ Sense w ∧ Dimpl rp hp rv alo ad r h v w vlo d do
+      invariant _pref _suff => 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Dimpl rp hp rv alo ad r h v w vlo d do
     let bool ← choose Bool
     if bool then
       vlo ← choose ℝ
@@ -986,7 +986,7 @@ def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM DelayedResult
   return { r, h, v, w, vlo, d }
 
 theorem delayed_noNMAC (rp hp rv alo ad r h v w vlo d : ℝ)
-    (ha : 0 < alo) (hw : Sense w) (hsafe : Dimpl rp hp rv alo ad r h v w vlo d) :
+    (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hsafe : Dimpl rp hp rv alo ad r h v w vlo d) :
     NoNMAC rp hp r h := by
   have hval := ((delayed_decomposition _ _ _ _ _ _ _ _ _ _ _ ha).mp hsafe).1 0
     le_rfl (le_max_left 0 d)
@@ -1004,7 +1004,7 @@ theorem delayed_eq (rp hp rv alo ad δ ε r h v w vlo d : ℝ) :
 /-- STTT Theorem 2; the bundled delayed kyx also preserves its implicit region. -/
 theorem delayed_safe :
     ∀ rp hp rv alo ad δ ε r h v w vlo d,
-      Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) → Sense w →
+      Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) → (w = -1 ∨ w = 1) →
       Dimpl rp hp rv alo ad r h v w vlo d →
         ∀ res ∈ SetM.run (delayed rp hp rv alo ad δ ε r h v w vlo d),
           NoNMAC rp hp res.r res.h ∧
@@ -1068,7 +1068,7 @@ theorem horizontal_reduction :
 
 /-- An admissible remaining-time region excludes a collision at its current state. -/
 theorem bounded_region_noNMAC (rp hp rv alo aup tl clock r h v w vlo vup : ℝ)
-    (ha : 0 < alo) (haup : 0 < aup) (hw : Sense w) (ht : clock ≤ tl ∨ tl < 0)
+    (ha : 0 < alo) (haup : 0 < aup) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
     (hsafe : CimplBounded rp hp rv alo aup tl clock r h v w vlo vup) :
     NoNMAC rp hp r h := by
   rcases hsafe with hlo | hup
@@ -1077,15 +1077,15 @@ theorem bounded_region_noNMAC (rp hp rv alo aup tl clock r h v w vlo vup : ℝ)
 
 /-- Paper Eq. (8), with the remaining-time region invariant on both nested loops. -/
 def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) : SetM TimedResult
-    requires 0 < alo ∧ 0 < aup ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
+    requires 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
       CimplBounded rp hp rv alo aup tl clock r h v w vlo vup
-    ensures res => Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+    ensures res => (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
       CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup
     := do
   let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
         CimplBounded rp hp rv alo aup tl clock r h v w vlo vup do
     vlo ← choose ℝ
     vup ← choose ℝ
@@ -1094,7 +1094,7 @@ def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) : SetM TimedResul
     clock := 0
     let m ← choose Nat
     for _ in [:m]
-        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
+        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
           CimplBounded rp hp rv alo aup tl clock r h v w vlo vup do
       let a ← choose ℝ
       (r, h, v, clock) ← boundedStep rp hp rv alo aup tl w vlo vup a r h v clock
@@ -1105,14 +1105,14 @@ theorem bounded_eq (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) :
       bounded' rp hp rv alo aup tl r h v w vlo vup clock := rfl
 
 /-- STTT17 Theorem 4, with weaker precondition (`0 < aup` instead of `alo ≤ aup`) and
-stronger postcondition (+ Sense, + CimplBounded), following `bounded_implicit.kyx`.
+stronger postcondition (+ valid sense, + CimplBounded), following `bounded_implicit.kyx`.
 The paper's initial assumptions are recovered at `t=0` with `alo ≤ aup`. -/
 theorem bounded_safe :
     ∀ rp hp rv alo aup tl r h v w vlo vup t,
-      Bounds rp hp rv alo ∧ 0 < aup → Sense w → (t ≤ tl ∨ tl < 0) →
+      Bounds rp hp rv alo ∧ 0 < aup → (w = -1 ∨ w = 1) → (t ≤ tl ∨ tl < 0) →
       CimplBounded rp hp rv alo aup tl t r h v w vlo vup →
         ∀ res ∈ SetM.run (bounded rp hp rv alo aup tl r h v w vlo vup t),
-          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+          NoNMAC rp hp res.r res.h ∧ (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
             CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup := by
   intro rp hp rv alo aup tl r h v w vlo vup t hb hw ht hsafe res hrun
   have ha := hb.1.2.2.2
@@ -1125,7 +1125,7 @@ theorem bounded_safe :
 
 /-- The bounded component of either safeable branch implies present safety. -/
 theorem safeable_region_noNMAC (rp hp rv alo aup tl clock vloEx vupEx r h v w vlo vup : ℝ)
-    (ha : 0 < alo) (haup : 0 < aup) (hw : Sense w) (ht : clock ≤ tl ∨ tl < 0)
+    (ha : 0 < alo) (haup : 0 < aup) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
     (hsafe : CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx) :
     NoNMAC rp hp r h := by
   apply bounded_region_noNMAC rp hp rv alo aup tl clock r h v w vlo vup ha haup hw ht
@@ -1134,16 +1134,16 @@ theorem safeable_region_noNMAC (rp hp rv alo aup tl clock vloEx vupEx r h v w vl
 /-- Paper Eq. (9), preserving the nominal safeable region on both nested loops. -/
 def safeable' (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
     SetM TimedResult
-    requires 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ Sense w ∧ (clock ≤ tl ∨ tl < 0) ∧
+    requires 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
       CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx
-    ensures res => Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+    ensures res => (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
       CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
         res.w res.vlo vloEx res.vup vupEx
     := do
   let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ Sense w ∧
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧
         (clock ≤ tl ∨ tl < 0) ∧
         CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx do
     vlo ← choose ℝ
@@ -1153,7 +1153,7 @@ def safeable' (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
     clock := 0
     let m ← choose Nat
     for _ in [:m]
-        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ Sense w ∧
+        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧
           (clock ≤ tl ∨ tl < 0) ∧
           CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx do
       let a ← choose ℝ
@@ -1164,15 +1164,15 @@ theorem safeable_eq (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ
     safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock =
       safeable' rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock := rfl
 
-/-- STTT17 Theorem 5, with the stronger postcondition (+ Sense, clock bound, CimplSafeable).
+/-- STTT17 Theorem 5, with the stronger postcondition (+ valid sense, clock bound, CimplSafeable).
 As above, `t=0` recovers the paper's initial full horizon. The postcondition preserves
 the nominal safeable region; it does not assert nonblocking or existence of a next advisory. -/
 theorem safeable_safe :
     ∀ rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t,
-      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → Sense w → (t ≤ tl ∨ tl < 0) →
+      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → (w = -1 ∨ w = 1) → (t ≤ tl ∨ tl < 0) →
       CimplSafeable rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx →
         ∀ res ∈ SetM.run (safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t),
-          NoNMAC rp hp res.r res.h ∧ Sense res.w ∧ (res.t ≤ tl ∨ tl < 0) ∧
+          NoNMAC rp hp res.r res.h ∧ (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
             CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
               res.w res.vlo vloEx res.vup vupEx := by
   intro rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t hb haup htl hw ht hsafe res hrun

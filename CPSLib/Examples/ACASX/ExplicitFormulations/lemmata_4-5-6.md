@@ -29,7 +29,7 @@ The supplement corrects several expressions used by the Lean statements: the
 use the initial velocity in both accelerating endpoint heights. The upper
 follow-up also uses the upper escape target and reversed sense. The Lean model
 comments identify these sources; upper terminal velocity is normalized under
-`Sense w`, and the explicit-region lemmas specialize the initial clock to zero.
+`(w = -1 ∨ w = 1)`, and the explicit-region lemmas specialize the initial clock to zero.
 
 This is a match for those components, not a transcription of completed
 supplementary Lemmas 5 and 6: [safeable Scala][safeable-scala] marks both lemmas
@@ -73,7 +73,7 @@ Two changes are equivalent normalizations under the theorem assumptions:
 
 - Bounds 15/16 use the model's switching-time partition; both height formulas
   agree at the switch.
-- `v + w * maxI v w vup` equals `w * max (w * vup) (w * v)` for `Sense w`, proved
+- `v + w * maxI v w vup` equals `w * max (w * vup) (w * v)` for `(w = -1 ∨ w = 1)`, proved
   by `upper_speed` in the [base proof](../Proof.lean).
 
 Lemma 5's upper follow-up uses the upper endpoint, reversed sense, and `vupEx`,

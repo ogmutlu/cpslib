@@ -17,3 +17,21 @@ rev = "v4.35.0"
 
 [[lean_lib]]
 name = "CPSLib"
+
+# Make the case studies discoverable by Verso without adding them to defaultTargets.
+[[lean_lib]]
+name = "CPSLibCaseStudies"
+roots = [
+  "CPSLib.Examples.FM09.Model",
+  "CPSLib.Examples.FM09.Challenge",
+  "CPSLib.Examples.FM11.Model",
+  "CPSLib.Examples.FM11.Challenge",
+  "CPSLib.Examples.ACASX.Model",
+  "CPSLib.Examples.ACASX.Challenge"
+]
+
+[[require]]
+name = "verso"
+git = "https://github.com/leanprover/verso.git"
+# Verso v4.35.0, matching lean-toolchain.
+rev = "304b8561790c50222551c937ce02928df0d5b445"

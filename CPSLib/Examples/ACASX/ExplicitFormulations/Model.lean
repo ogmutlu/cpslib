@@ -155,7 +155,7 @@ def bound15 (hp alo tl h v w vlo : ℝ) : Prop :=
 
 /-- Fig. 10 bound16: follows the endpoint expression in
 `bounded_upper_equivalence.kyx` (lines 56--63), normalized using the model's
-switching-time partition and terminal speed for `Sense w`. -/
+switching-time partition and terminal speed for `(w = -1 ∨ w = 1)`. -/
 @[reducible]
 def bound16 (hp aup tl h v w vup : ℝ) : Prop :=
   (tl < maxI v w vup / aup → aup / 2 * tl ^ 2 + w * v * tl + hp < w * h) ∧
@@ -191,7 +191,7 @@ noncomputable def lowerExit (alo tl v w vlo : ℝ) : ℝ × ℝ :=
 
 /-- Fig. 12 nominal upper endpoint height and velocity, following `condImplSafeableUp`
 in `AcasXSafeable.scala` (lines 382--393), for `0 ≤ tl` and initial clock zero.
-The accelerating height uses `v`; the final speed is equivalent for `Sense w`. -/
+The accelerating height uses `v`; the final speed is equivalent for `(w = -1 ∨ w = 1)`. -/
 noncomputable def upperExit (aup tl v w vup : ℝ) : ℝ × ℝ :=
   if tl < maxI v w vup / aup then
     (w * aup / 2 * tl ^ 2 + v * tl, w * aup * tl + v)
