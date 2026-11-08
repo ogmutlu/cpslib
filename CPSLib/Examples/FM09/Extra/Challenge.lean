@@ -1,0 +1,164 @@
+import CPSLib.Examples.FM09.Extra.Model
+
+open CPSLib
+
+namespace FM09
+
+/-- Initially separated aircraft remain separated after any NTRM run. -/
+theorem ntrm_safe :
+    ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
+      ∀ res ∈ SetM.run (ntrm p x d y e),
+        Separated p res.x res.y := sorry
+
+/-- Initially separated aircraft remain separated after any FTRM run. But this
+does not establish safety throughout every moment of the FTRM run. -/
+theorem ftrm_end_safe :
+    ∀ (p r : ℝ) (x d y e : Vec2),
+      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
+        ∀ res ∈ SetM.run (ftrm p r x d y e),
+          Separated p res.x res.y := sorry
+
+/-- Throughout safety for the FTRM: after any number of (incl. zero) FTRM
+iterations, running any prefix of another FTRM iteration is safe. -/
+theorem ftrm_throughout_safe :
+    ∀ (p r : ℝ) (x d y e : Vec2),
+      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
+        ∀ st ∈ SetM.run (ftrm p r x d y e),
+          ∀ k : Fin 5, ∀ res ∈ SetM.run (ftrmPrefix p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := sorry
+
+/-- Theorem 1 (modified entry): every complete modified FTRM run is safe whenever
+the replacement entry satisfies the bounded-time safety and tangency contract. -/
+theorem ftrm_modified_end_safe :
+    ∀ (entry : EntryProcedure) (bound : EntryTimeBound) (p r : ℝ) (x d y e : Vec2),
+      ModifiedEntryContract entry bound p →
+      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
+        ∀ res ∈ SetM.run (ftrmModified entry bound p r x d y e),
+          Separated p res.x res.y := sorry
+
+/-- Theorem 1 (modified entry), throughout: after any number of complete cycles,
+every phase prefix remains safe, including every entry time between zero and `T`. -/
+theorem ftrm_modified_throughout_safe :
+    ∀ (entry : EntryProcedure) (bound : EntryTimeBound) (p r : ℝ) (x d y e : Vec2),
+      ModifiedEntryContract entry bound p →
+      0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
+        ∀ st ∈ SetM.run (ftrmModified entry bound p r x d y e),
+          ∀ k : Fin 5,
+          ∀ res ∈ SetM.run (ftrmModifiedPrefix entry bound p st.r k st.x st.d st.y st.e),
+            Separated p res.x res.y := sorry
+
+/-- AC1 (free phase): free flight preserves far separation (its domain) and
+the linear speeds. Prefix-closed, hence throughout. -/
+theorem AC1_free :
+    ∀ (p r : ℝ) (x d y e : Vec2), Separated (far p r) x y →
+      ∀ x' d' y' e', (x', d', y', e') ∈ SetM.run (free_f p r x d y e) →
+        Separated (far p r) x' y' ∧ ‖d'‖ = ‖d‖ ∧ ‖e'‖ = ‖e‖ := sorry
+
+/-- AC1 (roundabout circle, Fig. 5): the common circular flight preserves the
+tangential configuration `R` and separation, for any domain. -/
+theorem AC1_circ :
+    ∀ (p ω : ℝ) (c : Vec2) (domain : Vec2 × Vec2 × Vec2 × Vec2 → Prop) (x d y e : Vec2),
+      R ω c x d y e ∧ Separated p x y →
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight ω ω) domain (x, d, y, e)) →
+            R ω c x' d' y' e' ∧ Separated p x' y' := sorry
+
+/-- AC2: linear speeds are invariant under any flight, for any domain. -/
+theorem AC2 :
+    ∀ (ω ρ : ℝ) (domain : Vec2 × Vec2 × Vec2 × Vec2 → Prop) (x d y e : Vec2),
+      ∀ x' d' y' e',
+        (x', d', y', e') ∈ SetM.run (evolve (flight ω ρ) domain (x, d, y, e)) →
+          ‖d'‖ = ‖d‖ ∧ ‖e'‖ = ‖e‖ := sorry
+
+/-- AC3 (flyable entry, Eq. (3)): when the entry reaches the roundabout radius,
+both aircraft are in the tangential configuration `R`. The anchor points are
+not hypotheses here; they exist by the entry configuration `C`. -/
+theorem AC3 :
+    ∀ (r ω : ℝ) (c x d y e : Vec2),
+      0 < r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight (-ω) (-ω)) (fun _ => True) (x, d, y, e)) →
+            ‖x' - c‖ ^ 2 = r ^ 2 → R ω c x' d' y' e' := sorry
+
+/-- AC4 (bounded entry reachability, Eq. (5)): there is an entry evolution
+reaching both roundabout circles within `T = πr / (3‖d‖)`.
+Unrestricted entry can also take extra turns; their duration is not bounded here. -/
+theorem AC4 :
+    ∀ (r ω : ℝ) (c x d y e : Vec2),
+      0 < r ∧ 0 < ‖d‖ ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
+        ∃ (duration : ℝ) (trajectory : ℝ → Vec2 × Vec2 × Vec2 × Vec2),
+          0 ≤ duration ∧ duration ≤ Real.pi * r / (3 * ‖d‖) ∧
+          IsEvolution trajectory (Evolvable.denotation (flight (-ω) (-ω)))
+            (fun _ => True) (x, d, y, e) duration ∧
+          let xr := (trajectory duration).1
+          let yr := (trajectory duration).2.2.1
+          ‖xr - c‖ ^ 2 = r ^ 2 ∧ ‖yr - c‖ ^ 2 = r ^ 2 := sorry
+
+/-- AC4, liveness corollary: the actual `entry_f`, including its radius test,
+has a successful run reaching both roundabout circles. -/
+theorem AC4_live :
+    ∀ (r ω : ℝ) (c x d y e : Vec2),
+      0 < r ∧ 0 < ‖d‖ ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ →
+        ∃ x' d' y' e', (x', d', y', e') ∈ SetM.run (entry_f ω r c x d y e) ∧
+          ‖x' - c‖ ^ 2 = r ^ 2 ∧ ‖y' - c‖ ^ 2 = r ^ 2 := sorry
+
+/-- AC5 (Eqs. (6), (16)): bounded-speed curved flight with arbitrary
+time-varying angular speeds preserves `p`-separation for duration `≤ T`. -/
+theorem AC5 :
+    ∀ (p b T : ℝ) (x d y e : Vec2) (ω ρ : ℝ → ℝ),
+      0 ≤ p ∧ 0 ≤ b ∧ 0 ≤ T ∧ ‖d‖ ^ 2 ≤ ‖e‖ ^ 2 ∧ ‖e‖ ^ 2 ≤ b ^ 2 ∧
+      Separated (Real.sqrt 2 * (p + 2 * b * T)) x y →
+        ∀ (duration : ℝ) (trajectory : ℝ → Vec2 × Vec2 × Vec2 × Vec2),
+          0 ≤ duration → duration ≤ T →
+          IsEvolution trajectory
+            (Evolvable.denotation
+              (fun (t : ℝ) (st : Vec2 × Vec2 × Vec2 × Vec2) => flight (ω t) (ρ t) st))
+            (fun _ => True) (x, d, y, e) duration →
+          let x' := (trajectory duration).1
+          let y' := (trajectory duration).2.2.1
+          Separated p x' y' := sorry
+
+/-- Entry separation under the far margin (Eq. (8)): the bare unrestricted
+entry ODE keeps `p`-separation at every time, including extra turns. -/
+theorem AC5_entry :
+    ∀ (p r ω : ℝ) (c x d y e : Vec2),
+      0 ≤ p ∧ 0 ≤ r ∧ C r x d y e c ∧ (r * ω) ^ 2 = ‖d‖ ^ 2 ∧ ‖e‖ = ‖d‖ ∧
+      Separated (far p r) x y →
+        ∀ x' d' y' e', (x', d', y', e') ∈ SetM.run (entryEvol ω (x, d, y, e)) →
+          Separated p x' y' := sorry
+
+/-- AC6 (successful negotiation): every outcome of `agree_f` meets the entry
+requirements, far separation for the new radius, and speed compatibility. -/
+theorem AC6 :
+    ∀ (p : ℝ) (x d y e : Vec2),
+      ∀ ω c r, (ω, c, r) ∈ SetM.run (agree_f p x d y e) →
+        0 ≤ r ∧ C r x d y e c ∧ Separated (far p r) x y ∧
+          (r * ω) ^ 2 = ‖d‖ ^ 2 := sorry
+
+/-- AC6, feasibility (Eq. (9)): choosing the simultaneous intersection of the
+flight paths as center is accepted by `agree_f` (non-vacuity). -/
+theorem AC6_feasible :
+    ∀ (p l : ℝ) (x d y e : Vec2),
+      0 < l ∧ x + l • d = y + l • e ∧ ‖d‖ = ‖e‖ ∧ 0 < ‖d‖ ∧
+      Separated (far p (l * ‖d‖ / Real.sqrt 3)) x y →
+        ∃ ω : ℝ, (ω, x + l • d, l * ‖d‖ / Real.sqrt 3) ∈ SetM.run (agree_f p x d y e) :=
+  sorry
+
+/-- AC7, safety (Eq. (10)): straight exits from a tangential configuration
+keep separation. Stated on the bare exit ODE, i.e. without the `?S(f)` guard. -/
+theorem AC7 :
+    ∀ (p ω : ℝ) (c x d y e : Vec2),
+      R ω c x d y e ∧ Separated p x y →
+        ∀ x' d' y' e',
+          (x', d', y', e') ∈ SetM.run (evolve (flight 0 0) (fun _ => True) (x, d, y, e)) →
+            Separated p x' y' := sorry
+
+/-- AC7, liveness (Eq. (11)): with different exit directions the aircraft
+become arbitrarily far apart, so the exit guard `?S(f)` can be passed. -/
+theorem AC7_live :
+    ∀ (ω : ℝ) (c x d y e : Vec2),
+      R ω c x d y e ∧ d ≠ e →
+        ∀ a : ℝ, ∃ x' d' y' e', (x', d', y', e') ∈ SetM.run (exitEvol (x, d, y, e)) ∧
+          a ^ 2 < ‖x' - y'‖ ^ 2 := sorry
+
+end FM09

@@ -1,7 +1,0 @@
-{
-    "challenge_module": "dLean.Examples.VectorBraking.Challenge",
-    "solution_module": "dLean.Examples.VectorBraking.Proof",
-    "theorem_names": ["vector_braking_safe"],
-    "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
-    "enable_nanoda": false
-}

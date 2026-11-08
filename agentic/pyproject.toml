@@ -1,12 +1,12 @@
 [project]
-name = "dlean-prover"
+name = "cpslib-prover"
 version = "0.1.0"
-description = "Prepare, run, and judge dLean proof-agent benchmarks"
+description = "Prepare, run, and judge CPSLib proof-agent benchmarks"
 requires-python = ">=3.11"
 dependencies = ["fire>=0.7,<0.8", "openai-codex>=0.163,<0.164"]
 
 [project.scripts]
-dlean-prove = "dlean_prover.cli:main"
+cpslib-prove = "cpslib_prover.cli:main"
 
 [dependency-groups]
 dev = [

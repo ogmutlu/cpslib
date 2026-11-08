@@ -1,0 +1,7 @@
+{
+    "challenge_module": "CPSLib.Examples.QdLCars.Challenge",
+    "solution_module": "CPSLib.Examples.QdLCars.Proof",
+    "theorem_names": ["collision_freedom"],
+    "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
+    "enable_nanoda": false
+}

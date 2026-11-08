@@ -1,0 +1,8 @@
+{
+  "include": ["agentic/src", "agentic/tests"],
+  "venvPath": "agentic",
+  "venv": ".venv",
+  "extraPaths": ["agentic/src"],
+  "typeCheckingMode": "strict",
+  "pythonVersion": "3.11"
+}

@@ -1,6 +1,6 @@
-# dLean
+# CPSLib
 
-dLean is a shallow embedding of [differential dynamic logic (dL)](https://doi.org/10.1007/978-3-319-63588-0) in Lean 4 for verifying cyber-physical systems. It represents hybrid programs—nondeterministic programs combining discrete and continuous dynamics—as ordinary monadic Lean programs that can be verified using Lean's `vcgen` framework. This approach scales from scalar systems to vector-valued dynamics and QdL-style multi-agent models while reusing Lean and Mathlib's existing infrastructure. Because LLMs are effective at constructing Lean proofs, dLean proofs are also well suited to LLM-based automation at scale.
+CPSLib is a shallow embedding of [differential dynamic logic (dL)](https://doi.org/10.1007/978-3-319-63588-0) in Lean 4 for verifying cyber-physical systems. It represents hybrid programs—nondeterministic programs combining discrete and continuous dynamics—as ordinary monadic Lean programs that can be verified using Lean's `vcgen` framework. This approach scales from scalar systems to vector-valued dynamics and QdL-style multi-agent models while reusing Lean and Mathlib's existing infrastructure. Because LLMs are effective at constructing Lean proofs, CPSLib proofs are also well suited to LLM-based automation at scale.
 
 ## Hybrid programs
 
@@ -73,62 +73,24 @@ The examples use Lean's intrinsic verification syntax: `requires` states the pre
 
 The automatic differentiation tactics discharge the analytic side of these rules and the remaining arithmetic is proved using Lean and Mathlib.
 
-State spaces beyond real-valued variables require almost no additional machinery: vectors are supported directly by Mathlib, while QdL-style collections of objects are represented as ordinary Lean functions from object identifiers to their values. Look at the examples under `dLean/Examples`
+State spaces beyond real-valued variables require almost no additional machinery: vectors are supported directly by Mathlib, while QdL-style collections of objects are represented as ordinary Lean functions from object identifiers to their values. Look at the examples under `CPSLib/Examples`
 
 ## Install and build
 
 ```sh
-git clone REPOSITORY_URL
-cd dLean
+git clone REPOSITORY_URL CPSLib
+cd CPSLib
 lake update
 lake exe cache get
 lake build
 ```
 
-## Tactic tests
+## Check example proofs
 
-Run the Lean regression tests with:
-
-```sh
-lake build dLean.Tests
-```
-
-The suite checks supplied and synthesized derivatives, scalar arithmetic and trigonometry,
-nested product states, PiLp coordinates and vector literals, squared norms, and simultaneous
-ODE/QODE products. It also checks rejection of incorrect derivatives and inactive-coordinate
-derivatives. Synthesized derivatives are checked against independently written formulas.
-
-## Proof automation
-
-The benchmark harness in `agentic/prove.sh` prepares a sandbox workspace, runs Codex or Claude Code (only Codex has been tested), and checks the generated `Solution.lean` independently with Lean Comparator. Reference `Proof.lean` files are not copied into the workspace.
-
-The repository includes a [dLean prover skill](agentic/skills/dlean-prover/SKILL.md). The harness copies it into each agent workspace and instructs the agent to read it before proving.
-
-Judging requires Lean Comparator and lean4export compatible with dLean's Lean toolchain, and Landrun on a Linux system that supports its sandbox. Clone [Comparator](https://github.com/leanprover/comparator) and build with:
+You can check the example proofs directly with Lean Comparator, included in the
+project's Lean 4.35 toolchain. From the repository root, pass an example's config:
 
 ```sh
-lake build lean4export comparator
+lake comparator --config=CPSLib/Examples/ACASX/config.json
 ```
 
-Back in the dLean repository, configure the executable locations:
-
-```sh
-export COMPARATOR_ROOT=/absolute/path/to/comparator
-export COMPARATOR_LANDRUN=/absolute/path/to/landrun
-```
-
-Run the complete workflow from the repository root (it creates the agent workspace under ./benchmark-results):
-
-```sh
-agentic/prove.sh run dLean/Examples/BouncingBall codex --model gpt-6.1-sol
-```
-
-The stages can also be run separately:
-
-```sh
-agentic/prove.sh prepare dLean/Examples/BouncingBall ./BouncingBall-sandbox
-agentic/prove.sh agent codex ./BouncingBall-sandbox
-agentic/prove.sh judge dLean/Examples/BouncingBall ./BouncingBall-sandbox/Solution.lean
-```
-
-Run `agentic/prove.sh help` for more information.

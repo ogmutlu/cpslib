@@ -1,7 +1,0 @@
-{
-    "challenge_module": "dLean.Examples.BouncingBall.Challenge",
-    "solution_module": "dLean.Examples.BouncingBall.Proof",
-    "theorem_names": ["aerodynamic_quantum_safe"],
-    "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
-    "enable_nanoda": false
-}

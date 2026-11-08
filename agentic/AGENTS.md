@@ -7,8 +7,8 @@ Prove every theorem listed in `config.json`. You may add helper definitions and 
 statements. Do not import `Challenge`, and do not use `sorry`, `admit`, new axioms, or unsafe escape
 hatches. Network access and web research are allowed.
 
-The dLean library source is available under `dLean/Core` and `dLean/Tactic`. Inspect and use it.
-Before proving, read and follow `.agents/skills/dlean-prover/SKILL.md`.
+The CPSLib library source is available under `CPSLib/Core` and `CPSLib/Tactic`. Inspect and use it.
+Before proving, read and follow `.agents/skills/cpslib-prover/SKILL.md`.
 Check progress with:
 
     lake env lean Solution.lean

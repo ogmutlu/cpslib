@@ -1,0 +1,18 @@
+{
+    "challenge_module": "CPSLib.Examples.ACASX.Challenge",
+    "solution_module": "CPSLib.Examples.ACASX.Proof",
+    "theorem_names": [
+        "ACASX.immediate_safe",
+        "ACASX.delayed_safe",
+        "ACASX.two_sided_safe",
+        "ACASX.bounded_safe",
+        "ACASX.safeable_safe",
+        "ACASX.horizontal_reduction"
+    ],
+    "permitted_axioms": [
+        "propext",
+        "Quot.sound",
+        "Classical.choice"
+    ],
+    "enable_nanoda": false
+}

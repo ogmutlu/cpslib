@@ -1,7 +1,7 @@
-name = "dLean"
+name = "CPSLib"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["dLean"]
+defaultTargets = ["CPSLib"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -16,4 +16,4 @@ scope = "leanprover-community"
 rev = "v4.35.0"
 
 [[lean_lib]]
-name = "dLean"
+name = "CPSLib"
