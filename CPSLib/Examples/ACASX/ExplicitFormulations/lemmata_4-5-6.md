@@ -6,8 +6,13 @@ and the base ACASX proofs. [Challenge.lean](Challenge.lean) states the targets,
 including Lemmas 1–3. The bounded and safeable lemmas use initial clock `0`.
 [Counterexample.lean](Counterexample.lean) contains the source variants and checked
 counterexamples.
-The benchmark config declares the base ACASX Model and Proof as trusted dependencies;
-the harness copies them at their original module paths into the benchmark snapshot.
+The public equivalence statements use `Encounter`, `Advisory`, `TwoSidedAdvisory`,
+and `TimeHorizon`, matching the implicit models. The polynomial formulas retain
+the paper's scalar notation; record-based interfaces in `Model.lean` supply their
+arguments. The original arithmetic proofs are in `ACASX.ExplicitScalar` and connect
+to the current implicit definitions through the base proof's checked representation
+equivalences. `Direction` supplies the old assumption `w = -1` or `w = 1`, and
+`Duration` supplies a nonnegative finite horizon.
 
 | Lemma | Theorem | Result |
 |---|---|---|
@@ -74,7 +79,7 @@ Two changes are equivalent normalizations under the theorem assumptions:
 - Bounds 15/16 use the model's switching-time partition; both height formulas
   agree at the switch.
 - `v + w * maxI v w vup` equals `w * max (w * vup) (w * v)` for `(w = -1 ∨ w = 1)`, proved
-  by `upper_speed` in the [base proof](../Proof.lean).
+  by `Scalar.upper_speed` in the [base proof](../Proof.lean).
 
 Lemma 5's upper follow-up uses the upper endpoint, reversed sense, and `vupEx`,
 resolving the printed statement's ambiguous lower-target subscript. The same

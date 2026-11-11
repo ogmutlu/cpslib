@@ -158,7 +158,7 @@ def ExitReadyMany {n : ℕ} (x₀ d₀ x d : Fin n → Vec2) : Prop :=
 checked for every aircraft. -/
 def agree_f_many {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) := do
   let c ← choose Vec2
-  let r ← chooseS {r : ℝ | r > 0}
+  let r ← chooseFrom {r : ℝ | r > 0}
   ensure (ConditionC r c x d)
   unless SeparatedMany (far p r) x do abort
   let ω ← choose ℝ

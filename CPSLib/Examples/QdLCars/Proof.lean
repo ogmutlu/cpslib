@@ -110,7 +110,7 @@ def prog (active : Finset Car) (x v a : Car → ℝ) : SetM Result := do
   let mut (x, v, a) := (x, v, a)
   let n ← choose ℕ
   for _ in [:n] do
-    let i ← chooseS {i | i ∉ active}
+    let i ← chooseFrom {i | i ∉ active}
     active := insert i active
     unless (∀ j ∈ active, i ≠ j →
             Ordered x v a i j ∨ Ordered x v a j i) do abort
@@ -126,7 +126,7 @@ def prog' (active : Finset Car) (x v a : Car → ℝ) : SetM Result
   let n ← choose ℕ
   for _ in [:n]
       invariant _pref _suff => invariant active x v a do
-    let i ← chooseS {i | i ∉ active}
+    let i ← chooseFrom {i | i ∉ active}
     active := insert i active
     unless (∀ j ∈ active, i ≠ j →
         Ordered x v a i j ∨ Ordered x v a j i) do abort

@@ -6,8 +6,7 @@
         "ACASX.delayed_safe",
         "ACASX.two_sided_safe",
         "ACASX.bounded_safe",
-        "ACASX.safeable_safe",
-        "ACASX.horizontal_reduction"
+        "ACASX.safeable_safe"
     ],
     "permitted_axioms": [
         "propext",

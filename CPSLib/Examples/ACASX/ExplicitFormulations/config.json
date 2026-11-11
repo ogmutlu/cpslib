@@ -7,7 +7,8 @@
         "ACASX.two_sided_regions_equivalent",
         "ACASX.bounded_regions_equivalent",
         "ACASX.endpoint_cases_redundant",
-        "ACASX.safeable_regions_equivalent"
+        "ACASX.safeable_regions_equivalent",
+        "ACASX.horizontal_reduction"
     ],
     "permitted_axioms": [
         "propext",

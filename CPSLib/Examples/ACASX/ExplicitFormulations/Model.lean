@@ -4,6 +4,10 @@ open CPSLib
 
 namespace ACASX
 
+/-- Scalar form of `Advisory.shortfallOf`, used in the paper’s polynomial formulas. -/
+@[reducible]
+def maxI (v w target : ℝ) : ℝ := max 0 (w * (target - v))
+
 /-- Fig. 3 : L⁻¹_expl -/
 @[reducible]
 def Lexpl (rp hp rv alo r h v w vlo : ℝ) : Prop :=
@@ -222,5 +226,100 @@ def UexplSafeable (rp hp rv alo aup tl r h v w vup vupEx : ℝ) : Prop :=
 def CexplSafeable (rp hp rv alo aup tl r h v w vlo vloEx vup vupEx : ℝ) : Prop :=
   LexplSafeable rp hp rv alo tl r h v w vlo vloEx ∨
     UexplSafeable rp hp rv alo aup tl r h v w vup vupEx
+
+
+
+/-!
+## Explicit regions for the record-based models
+
+These definitions apply the polynomial formulas above to the same advisories and
+encounters as the implicit models. Bounded and safeable regions start at clock zero.
+-/
+
+/-- Explicit counterpart of `Advisory.LoSafeFor`. (see Fig. 3, `L⁻¹_expl`) -/
+@[reducible]
+def Advisory.LoSafeForExplicit (advisory : Advisory) (encounter : Encounter)
+    (rp hp rv alo : ℝ) : Prop :=
+  Lexpl rp hp rv alo encounter.r encounter.h encounter.v advisory.direction.sign advisory.targetv
+
+/-- Explicit counterpart of `Advisory.DelayedSafeFor`. (see Fig. 5, `Dᵈ_expl`) -/
+@[reducible]
+def Advisory.DelayedSafeForExplicit (advisory : Advisory) (encounter : Encounter)
+    (rp hp rv alo ad d : ℝ) : Prop :=
+  Dexpl rp hp rv alo ad encounter.r encounter.h encounter.v
+    advisory.direction.sign advisory.targetv d
+
+/-- Explicit counterpart of `TwoSidedAdvisory.SafeFor`. (see Fig. 8, `C⁻¹_expl`) -/
+@[reducible]
+def TwoSidedAdvisory.SafeForExplicit (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) : Prop :=
+  Cexpl rp hp rv alo aup encounter.r encounter.h encounter.v
+    advisory.direction.sign advisory.lower advisory.upper
+
+/-- Encode an unlimited horizon by the negative sentinel used in the polynomial formulas. -/
+def TimeHorizon.explicitBound : TimeHorizon → ℝ
+  | .unlimited => -1
+  | .bounded duration => duration.val
+
+/-- Explicit counterpart of `SafeForWithin` at clock zero. (see Fig. 10, `Ĉε_expl`) -/
+@[reducible]
+def TwoSidedAdvisory.SafeForWithinExplicit (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) (limit : TimeHorizon) : Prop :=
+  CexplBoundedHat rp hp rv alo aup limit.explicitBound encounter.r encounter.h encounter.v
+    advisory.direction.sign advisory.lower advisory.upper
+
+/-- Explicit counterpart of `SafeableFor` at clock zero. (see Fig. 12, `Csafeable(ε)_expl`) -/
+@[reducible]
+def TwoSidedAdvisory.SafeableForExplicit (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) (duration : Duration) (vloEx vupEx : ℝ) : Prop :=
+  CexplSafeable rp hp rv alo aup duration.val encounter.r encounter.h encounter.v
+    advisory.direction.sign advisory.lower vloEx advisory.upper vupEx
+
+/-!
+## Reducing planar horizontal motion to one coordinate
+
+The aircraft need not approach head-on. Imagine keeping the ownship fixed on a map
+viewed from above. With constant relative horizontal velocity, the intruder follows
+a straight line, which may pass beside the ownship rather than directly through it.
+
+We describe this motion with two numbers. `s` is the signed distance along that line
+to the point of closest approach. `n` is the sideways offset between the ownship and
+the line. As the intruder moves, `s` changes but `n` stays constant.
+
+If the sideways offset alone exceeds `rp`, the aircraft always remain horizontally
+separated. Otherwise, that offset still contributes to their separation, so less
+distance along the line is needed. The paper therefore reuses the head-on analysis
+with `s` as the changing horizontal coordinate and a smaller protected distance
+that accounts for `n`. If there is no relative horizontal motion, horizontal
+separation simply stays constant. (see Section 6 and Fig. 13)
+-/
+
+/--
+The ODE describing planar relative position and reduced coordinates `(x, y, s, n)`.
+`x' = rx`, `y' = ry`, `s' = -rv`, `n' = 0`. Planar velocity is constant, along-track
+separation decreases at speed `rv`, and cross-track separation stays fixed.
+(see Eq. (11))
+
+See `ACASX.horizontal_reduction` in `CPSLib.Examples.ACASX.ExplicitFormulations.Challenge` for the
+reduction claim.
+-/
+def motionHorizontalODE (rx ry rv : ℝ) : (ℝ × ℝ × ℝ × ℝ) → (ℝ × ℝ × ℝ × ℝ)
+  | (_x, _y, _s, _n) => (rx, ry, -rv, 0)
+
+/--
+Holds when planar position `(x, y)` and reduced coordinates `(s, n)` describe the
+same horizontal encounter. The projection equations relate position to velocity
+`(rx, ry)`, and the squared-distance and speed identities preserve horizontal distance.
+(see Eq. (11) and Proposition 1)
+
+- `s`: signed along-track separation.
+- `n`: signed cross-track separation.
+- `rv`: magnitude of the relative horizontal velocity.
+-/
+@[reducible]
+def HorizontalCoordinates (rx ry rv x y s n : ℝ) : Prop :=
+  x * rx + y * ry = -s * rv ∧ x * ry - y * rx = n * rv ∧
+    x ^ 2 + y ^ 2 = n ^ 2 + s ^ 2 ∧ rv ^ 2 = rx ^ 2 + ry ^ 2
+
 
 end ACASX

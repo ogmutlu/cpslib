@@ -69,7 +69,7 @@ def free_f (p r : ℝ) (x d y e : Vec2) := free (far p r) x d y e
 /-- Negotiation of the roundabout center, radius and angular velocity (Fig. 10). -/
 def agree_f (p : ℝ) (x d y e : Vec2) := do
   let c ← choose Vec2
-  let r ← chooseS {r : ℝ | r > 0}
+  let r ← chooseFrom {r : ℝ | r > 0}
   ensure (C r x d y e c)
   unless Separated (far p r) x y do abort
   let ω ← choose ℝ

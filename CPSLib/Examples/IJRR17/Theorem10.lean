@@ -249,7 +249,7 @@ noncomputable def obstacleControl' (O : Set Obstacle) (V : Obstacle → ℝ)
   let n ← choose ℕ
   for _ in [:n]
       invariant _pref _suff => VelocityBounds O V v do
-    let i ← chooseS O
+    let i ← chooseFrom O
     let vi ← choose Vec2
     ensure (‖vi‖ ≤ V i)
     v := Function.update v i vi

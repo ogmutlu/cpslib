@@ -5,6 +5,8 @@ See `lemmata_4-5-6.md` for the source comparison. -/
 
 namespace ACASX
 
+open Scalar ExplicitScalar
+
 /-- The corrected formula accepts the stationary boundary example without invoking Lemma 4. -/
 theorem corrected_stationary_boundary_example :
     CexplSafeable 1 1 0 1 1 1 (-1) (-4) (-1) 1 (-1) 0 (-1) 0 := by
@@ -120,7 +122,7 @@ theorem upperEndpoint_le_printed (aup τ hn vn v w vup : ℝ)
   rcases he with ⟨ht, hs, rfl, rfl⟩ | ⟨hs, rfl, rfl⟩
   · have hgap : 0 ≤ w * (vup - v) := by
       by_contra hg
-      have hm : maxI v w vup = 0 := max_eq_left (le_of_not_ge hg)
+      have hm : Scalar.maxI v w vup = 0 := max_eq_left (le_of_not_ge hg)
       rw [hm, zero_div] at hs
       linarith
     refine ⟨w * aup / 2 * τ ^ 2 + vup * τ, Or.inl ⟨ht, hs, rfl, rfl⟩, ?_⟩
@@ -211,7 +213,7 @@ theorem printed_stationary_boundary_counterexample :
     · intro hn vn he
       norm_num [lowerEndpoint, maxI] at he
       obtain ⟨rfl, rfl⟩ := he
-      apply (immediate_regions_equivalent _ _ _ _ _ _ _ _ _
+      apply (ExplicitScalar.immediate_regions_equivalent _ _ _ _ _ _ _ _ _
         (by norm_num [Bounds]) (by norm_num)).mp
       norm_num [Lexpl, maxI]
   · norm_num [Printed.CexplSafeable, Printed.LexplBounded, Printed.UexplBounded,

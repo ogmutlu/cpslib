@@ -102,7 +102,7 @@ def BehindLStar (C : Finset Car) (b B : ℝ) (x v : Car → ℝ) (i : Car) : Pro
     let mut k := i
     let n ← choose ℕ
     for _ in [:n] do
-      let l ← chooseS {l | L C x k l} -- L(k)
+      let l ← chooseFrom {l | L C x k l} -- L(k)
       k := l
     return k),
   Behind b B x v i k
@@ -209,7 +209,7 @@ def ctrl_i (A b B ε : ℝ) (C : Finset Car) (i : Car)
     return Function.update a i ai)
     <|>
   (do
-    let l ← chooseS {l | L C x i l} -- leader of car i
+    let l ← chooseFrom {l | L C x i l} -- leader of car i
     unless Safe_ε A b B ε x v i l do abort
     let ai ← choose ℝ
     unless (-B ≤ ai ∧ ai ≤ A) do abort
@@ -267,11 +267,11 @@ def FBehind (C : Finset Car) (b B : ℝ) (x v : Car → ℝ) (n : Car) : Prop :=
   ∀ j ∈ C, L C x j n → Behind b B x v j n
 
 def new (C : Finset Car) : SetM (Car × Finset Car) := do
-  let n ← chooseS {n | n ∉ C}
+  let n ← chooseFrom {n | n ∉ C}
   return (n, insert n C)
 
 def delete (C : Finset Car) : SetM (Finset Car) := do
-  let n ← chooseS {n | n ∈ C}
+  let n ← chooseFrom {n | n ∈ C}
   return C.erase n
 
 def create (C : Finset Car) (b B : ℝ) (x v : Car → ℝ) := do

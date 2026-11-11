@@ -430,7 +430,7 @@ def leaders' (C : Finset Car) (x : Car → ℝ) (i : Car) : SetM Car
   let n ← choose ℕ
   for _ in [:n]
       invariant _pref _suff => k ∈ C ∧ x i ≤ x k do
-    let l ← chooseS {l | L C x k l}
+    let l ← chooseFrom {l | L C x k l}
     k := l
   return k
 where finally
@@ -474,7 +474,7 @@ def ctrl_i' (A b B ε : ℝ) (C : Finset Car) (i : Car)
     return Function.update a i ai)
     <|>
   (do
-    let l ← chooseS {l | L C x i l}
+    let l ← chooseFrom {l | L C x i l}
     unless Safe_ε A b B ε x v i l do abort
     let ai ← choose ℝ
     unless (-B ≤ ai ∧ ai ≤ A) do abort
@@ -649,7 +649,7 @@ def delete' (C : Finset Car) (b B : ℝ) (x v : Car → ℝ) : SetM (Finset Car)
     requires (0 < b ∧ b ≤ B) ∧ LaneSafe C b B x v
     ensures D => LaneSafe D b B x v
     := do
-  let n ← chooseS {n | n ∈ C}
+  let n ← chooseFrom {n | n ∈ C}
   return C.erase n
 where finally
   | spec =>
@@ -660,7 +660,7 @@ def new' (C : Finset Car) : SetM (Car × Finset Car)
     requires True
     ensures (n, D) => n ∉ C ∧ D = insert n C
     := do
-  let n ← chooseS {n | n ∉ C}
+  let n ← chooseFrom {n | n ∉ C}
   return (n, insert n C)
 where finally
   | spec => exact ‹_ ∈ SetM.run _›

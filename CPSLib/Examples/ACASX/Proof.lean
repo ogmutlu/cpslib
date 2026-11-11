@@ -8,6 +8,153 @@ set_option experimental.intrinsic true
 
 namespace ACASX
 
+@[reducible]
+def Bounds (rp hp rv alo : ℝ) : Prop := 0 ≤ rp ∧ 0 < hp ∧ 0 ≤ rv ∧ 0 < alo
+
+@[reducible]
+def NoNMAC (rp hp : ℝ) (encounter : Encounter) : Prop :=
+  rp < |encounter.r| ∨ hp < |encounter.h|
+
+/-!
+The scalar arithmetic kernel retains the original case-study formulas. The typed
+model is connected to these formulas below; controller proofs use the typed model.
+-/
+namespace Scalar
+
+@[reducible]
+def maxI (v w target : ℝ) : ℝ := max 0 (w * (target - v))
+
+/-- Fig. 3 : A -/
+@[reducible]
+def A (alo t hn v w vlo : ℝ) : Prop :=
+  (0 ≤ t ∧ t < maxI v w vlo / alo ∧ hn = w * alo / 2 * t ^ 2 + v * t) ∨
+  (maxI v w vlo / alo ≤ t ∧ hn = vlo * t - w * maxI v w vlo ^ 2 / (2 * alo))
+
+/-- Fig. 3 : L⁻¹_impl -/
+@[reducible]
+def Limpl (rp hp rv alo r h v w vlo : ℝ) : Prop :=
+  ∀ t rn hn : ℝ, rn = rv * t ∧ A alo t hn v w vlo →
+    rp < |r - rn| ∨ w * (h - hn) < -hp
+
+@[reducible]
+def advisoryLo (alo v w vlo a : ℝ) : Prop := w * vlo ≤ w * v ∨ alo ≤ w * a
+
+/-- From Eq. (1) -/
+def motion (rv a : ℝ) : ℝ × ℝ × ℝ → ℝ × ℝ × ℝ :=
+  fun (_r, _h, v) => (-rv, -v, a)
+
+/-- From Eq. (1) -/
+def lowerDomain (alo w vlo a : ℝ) : ℝ × ℝ × ℝ → Prop :=
+  fun (_r, _h, v) => advisoryLo alo v w vlo a
+
+/-- Fig. 5 : Dᵈ_impl, follows `safe_delay_implicit.kyx`.
+the paper (fixed version: `vd` instead of `v` inside `A`) -/
+@[reducible]
+def Dimpl (rp hp rv alo ad r h v w vlo d : ℝ) : Prop :=
+  ∀ t rn hn hd vd : ℝ,
+    rn = rv * t ∧
+      ((0 ≤ t ∧ t < max 0 d ∧ hn = -(w * ad) / 2 * t ^ 2 + v * t) ∨
+        ((hd = -(w * ad) / 2 * (max 0 d) ^ 2 + v * max 0 d ∧ vd - v = -w * ad * max 0 d) ∧
+          A alo (t - max 0 d) (hn - hd) vd w vlo)
+      ) →
+      rp < |r - rn| ∨ w * (h - hn) < -hp
+
+/-- From Eq. (4) -/
+def delayedMotion (rv a : ℝ) : ℝ × ℝ × ℝ × ℝ × ℝ → ℝ × ℝ × ℝ × ℝ × ℝ :=
+  fun (_r, _h, v, _d, _t) => (-rv, -v, a, -1, 1)
+
+/-- From Eq. (4) -/
+def delayedDomain (alo ε w vlo a : ℝ) : ℝ × ℝ × ℝ × ℝ × ℝ → Prop :=
+  fun (_r, _h, v, d, t) => t ≤ ε ∧ (d ≤ 0 → advisoryLo alo v w vlo a)
+
+/-- Fig. 8 : A_up -/
+@[reducible]
+def Aup (aup t hn v w vup : ℝ) : Prop :=
+  (0 ≤ t ∧ t < maxI v w vup / aup ∧ hn = w * aup / 2 * t ^ 2 + v * t) ∨
+  (maxI v w vup / aup ≤ t ∧
+    hn = w * max (w * vup) (w * v) * t - w * maxI v w vup ^ 2 / (2 * aup))
+
+/-- Fig. 8 : U⁻¹_impl -/
+@[reducible]
+def Uimpl (rp hp rv aup r h v w vup : ℝ) : Prop :=
+  ∀ t rn hn : ℝ, rn = rv * t ∧ Aup aup t hn v w vup →
+    rp < |r - rn| ∨ hp < w * (h - hn)
+
+/-- Fig. 8 : C⁻¹_impl -/
+@[reducible]
+def Cimpl (rp hp rv alo aup r h v w vlo vup : ℝ) : Prop :=
+  Limpl rp hp rv alo r h v w vlo ∨ Uimpl rp hp rv aup r h v w vup
+
+@[reducible]
+def advisoryUp (aup v w vup a : ℝ) : Prop := (w * v ≤ w * vup ∧ w * a ≤ aup) ∨ w * a ≤ 0
+
+/-- From Eq. (5) -/
+def twoSidedDomain (alo aup w vlo vup a : ℝ) : ℝ × ℝ × ℝ → Prop :=
+  fun (_r, _h, v) => advisoryLo alo v w vlo a ∧ advisoryUp aup v w vup a
+
+/-- Fig. 10 : Lε_impl (equivalent to paper for `t=0`), follows `bounded_implicit.kyx`
+(fixed typo from paper: `hp` to `-hp`) -/
+@[reducible]
+def LimplBounded (rp hp rv alo tl t r h v w vlo : ℝ) : Prop :=
+  ∀ tn rn hn : ℝ, (tn ≤ tl - t ∨ tl < 0) ∧ rn = rv * tn ∧ A alo tn hn v w vlo →
+    rp < |r - rn| ∨ w * (h - hn) < -hp
+
+/-- Fig. 10 : Uε_impl (equivalent to paper for `t=0`) -/
+@[reducible]
+def UimplBounded (rp hp rv aup tl t r h v w vup : ℝ) : Prop :=
+  ∀ tn rn hn : ℝ, (tn ≤ tl - t ∨ tl < 0) ∧ rn = rv * tn ∧ Aup aup tn hn v w vup →
+    rp < |r - rn| ∨ hp < w * (h - hn)
+
+/-- Fig. 10 : Cε_impl (equivalent to paper for `t=0`) -/
+@[reducible]
+def CimplBounded (rp hp rv alo aup tl t r h v w vlo vup : ℝ) : Prop :=
+  LimplBounded rp hp rv alo tl t r h v w vlo ∨
+    UimplBounded rp hp rv aup tl t r h v w vup
+
+/-- From Eq. (8) -/
+def clockedMotion (rv a : ℝ) : ℝ × ℝ × ℝ × ℝ → ℝ × ℝ × ℝ × ℝ :=
+  fun (_r, _h, v, _t) => (-rv, -v, a, 1)
+
+/-- From Eq. (8) -/
+def clockedDomain (alo aup tl w vlo vup a : ℝ) : ℝ × ℝ × ℝ × ℝ → Prop :=
+  fun (_r, _h, v, t) => (t ≤ tl ∨ tl < 0) ∧
+    advisoryLo alo v w vlo a ∧ advisoryUp aup v w vup a
+
+/-- Fig. 12 : lower endpoint, follows `condImplSafeableLo` in `AcasXSafeable.scala`
+(fixed typo from paper: `vlo * τ` to `v * τ` in the first disjunct). -/
+@[reducible]
+def lowerEndpoint (alo τ hn vn v w vlo : ℝ) : Prop :=
+  (0 ≤ τ ∧ τ < maxI v w vlo / alo ∧
+    hn = w * alo / 2 * τ ^ 2 + v * τ ∧ vn = w * alo * τ + v) ∨
+  (maxI v w vlo / alo ≤ τ ∧
+    hn = vlo * τ - w * maxI v w vlo ^ 2 / (2 * alo) ∧ vn = vlo)
+
+/-- Fig. 12 : upper endpoint, follows `condImplSafeableUp` in `AcasXSafeable.scala`
+(fixed typo from paper: `vup * τ` to `v * τ` in the first disjunct). -/
+@[reducible]
+def upperEndpoint (aup τ hn vn v w vup : ℝ) : Prop :=
+  (0 ≤ τ ∧ τ < maxI v w vup / aup ∧
+    hn = w * aup / 2 * τ ^ 2 + v * τ ∧ vn = w * aup * τ + v) ∨
+  (maxI v w vup / aup ≤ τ ∧
+    hn = w * max (w * vup) (w * v) * τ - w * maxI v w vup ^ 2 / (2 * aup) ∧
+    vn = w * max (w * vup) (w * v))
+
+/-- Fig. 12 : Csafeable(ε)_impl, following `condImplSafeable` in `AcasXSafeable.scala`.
+The upper follow-up uses reversed sense and `vupEx`; upper terminal speed is normalized
+using `(w = -1 ∨ w = 1)`. The paper is specialized to `t=0` and prints different
+endpoint heights. -/
+@[reducible]
+def CimplSafeable (rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx : ℝ) : Prop :=
+  (LimplBounded rp hp rv alo tl t r h v w vlo ∧
+    ∀ hn vn : ℝ, lowerEndpoint alo (tl - t) hn vn v w vlo →
+      Limpl rp hp rv alo (r - rv * (tl - t)) (h - hn) vn w vloEx) ∨
+  (UimplBounded rp hp rv aup tl t r h v w vup ∧
+    ∀ hn vn : ℝ, upperEndpoint aup (tl - t) hn vn v w vup →
+      Limpl rp hp rv alo (r - rv * (tl - t)) (h - hn) vn (-w) vupEx)
+
+@[reducible]
+def NoNMAC (rp hp r h : ℝ) : Prop := rp < |r| ∨ hp < |h|
+
 /-- Twice the signed nominal height relative to the target-speed line.
 The time argument has been rescaled by `alo`; `gap` is the signed velocity shortfall. -/
 noncomputable def lowerRelative (gap t : ℝ) : ℝ :=
@@ -172,37 +319,6 @@ def lowerStep (_rp _hp rv alo w vlo a r h v : ℝ) :=
     exact hdom
   · exact hsafe
 
-@[spec] theorem sense_spec : ⦃True⦄ sense ⦃fun w => (w = -1 ∨ w = 1)⦄ := by
-  constructor
-  intro _
-  rw [SetM.wp_iff_run]
-  simp [sense, chooseS, SetM.run]
-
-@[spec] theorem choice_spec {α : Type} (p q : SetM α) (Q : α → Prop) :
-    ⦃wp p Q estack⟨⟩ ∧ wp q Q estack⟨⟩⦄ p <|> q ⦃Q⦄ := by
-  constructor
-  intro h
-  exact SetM.wp_orElse p q h.1 h.2
-
-/-- Proof-only annotation of the original immediate-response loop.
-The erased program is definitionally equal to `immediate`; see `immediate_eq`. -/
-def immediate' (rp hp rv alo r h v w vlo : ℝ) : SetM Result
-    requires 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Limpl rp hp rv alo r h v w vlo
-    ensures res => (res.w = -1 ∨ res.w = 1) ∧ Limpl rp hp rv alo res.r res.h res.v res.w res.vlo
-    := do
-  let mut (r, h, v, w, vlo) := (r, h, v, w, vlo)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Limpl rp hp rv alo r h v w vlo do
-    let bool ← choose Bool
-    if bool then
-      w ← sense
-      vlo ← choose ℝ
-      ensure (Limpl rp hp rv alo r h v w vlo)
-    let a ← choose ℝ
-    (r, h, v) ← lowerStep rp hp rv alo w vlo a r h v
-  return { r, h, v, w, vlo }
-
 theorem A_zero (alo v w vlo : ℝ) (ha : 0 < alo) : A alo 0 0 v w vlo := by
   by_cases hm : maxI v w vlo = 0
   · right
@@ -219,22 +335,6 @@ theorem lower_implies_noNMAC (rp hp rv alo r h v w vlo : ℝ)
   · right
     rcases hw with rfl | rfl <;> simp only [sub_zero, neg_one_mul, one_mul] at hsep
     all_goals linarith [le_abs_self h, neg_le_abs h]
-
-theorem immediate_eq (rp hp rv alo r h v w vlo : ℝ) :
-    immediate rp hp rv alo r h v w vlo = immediate' rp hp rv alo r h v w vlo := rfl
-
-/-- STTT Theorem 1; preserve the stronger region postcondition of `acasx.kyx`. -/
-theorem immediate_safe :
-    ∀ rp hp rv alo r h v w vlo,
-      Bounds rp hp rv alo → (w = -1 ∨ w = 1) → Limpl rp hp rv alo r h v w vlo →
-        ∀ res ∈ SetM.run (immediate rp hp rv alo r h v w vlo),
-          NoNMAC rp hp res.r res.h ∧
-            Limpl rp hp rv alo res.r res.h res.v res.w res.vlo := by
-  intro rp hp rv alo r h v w vlo hb hw hsafe res hrun
-  rw [immediate_eq] at hrun
-  have hinv := (immediate'.spec rp hp rv alo r h v w vlo).le_wp
-    ⟨hb.2.2.2, hw, hsafe⟩ res hrun
-  exact ⟨lower_implies_noNMAC rp hp rv alo _ _ _ _ _ hb.2.2.2 hinv.1 hinv.2, hinv.2⟩
 
 /-- Signed height gained over the initial velocity line by the capped upper
 trajectory. Its final slope uses `max (w*vup) (w*v)` as in the newer archive. -/
@@ -370,28 +470,6 @@ def twoSidedStep (_rp _hp rv alo aup w vlo vup a r h v : ℝ) :=
   · exact Or.inr (upper_kinematic_preserved rp hp rv aup r h v w vup a T haup hw hT
       hstart.2 hfinish.2 hsafe)
 
-/-- The newer archive reissues both targets. This annotated loop erases to the
-original program by `rfl`, including the retain-advisory alternative. -/
-def twoSided' (rp hp rv alo aup r h v w vlo vup : ℝ) : SetM TwoSidedResult
-    requires 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ Cimpl rp hp rv alo aup r h v w vlo vup
-    ensures res => (res.w = -1 ∨ res.w = 1) ∧
-      Cimpl rp hp rv alo aup res.r res.h res.v res.w res.vlo res.vup
-    := do
-  let mut (r, h, v, w, vlo, vup) := (r, h, v, w, vlo, vup)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧
-        Cimpl rp hp rv alo aup r h v w vlo vup do
-    let bool ← choose Bool
-    if bool then
-      w ← sense
-      vlo ← choose ℝ
-      vup ← choose ℝ
-      ensure (Cimpl rp hp rv alo aup r h v w vlo vup)
-    let a ← choose ℝ
-    (r, h, v) ← twoSidedStep rp hp rv alo aup w vlo vup a r h v
-  return { r, h, v, w, vlo, vup }
-
 theorem Aup_zero (aup v w vup : ℝ) (ha : 0 < aup) : Aup aup 0 0 v w vup := by
   by_cases hm : maxI v w vup = 0
   · right
@@ -408,27 +486,6 @@ theorem upper_implies_noNMAC (rp hp rv aup r h v w vup : ℝ)
   · right
     rcases hw with rfl | rfl <;> simp only [sub_zero, neg_one_mul, one_mul] at hsep
     all_goals linarith [le_abs_self h, neg_le_abs h]
-
-theorem twoSided_eq (rp hp rv alo aup r h v w vlo vup : ℝ) :
-    twoSided rp hp rv alo aup r h v w vlo vup =
-      twoSided' rp hp rv alo aup r h v w vlo vup := rfl
-
-/-- STTT Theorem 3 as supplied in repository `acasxtwosided.kyx`.
-Both targets can change; `alo ≤ aup` is required. The archive postcondition is NoNMAC. -/
-theorem two_sided_safe :
-    ∀ rp hp rv alo aup r h v w vlo vup,
-      Bounds rp hp rv alo → alo ≤ aup → (w = -1 ∨ w = 1) →
-      Cimpl rp hp rv alo aup r h v w vlo vup →
-        ∀ res ∈ SetM.run (twoSided rp hp rv alo aup r h v w vlo vup),
-          NoNMAC rp hp res.r res.h := by
-  intro rp hp rv alo aup r h v w vlo vup hb haup hw hsafe res hrun
-  have ha := hb.2.2.2.trans_le haup
-  rw [twoSided_eq] at hrun
-  have hinv := (twoSided'.spec rp hp rv alo aup r h v w vlo vup).le_wp
-    ⟨hb.2.2.2, ha, hw, hsafe⟩ res hrun
-  rcases hinv.2 with hlo | hup
-  · exact lower_implies_noNMAC rp hp rv alo _ _ _ _ _ hb.2.2.2 hinv.1 hlo
-  · exact upper_implies_noNMAC rp hp rv aup _ _ _ _ _ ha hinv.1 hup
 
 /-- Project the physical coordinates to the already solved three-coordinate ODE;
 the persistent issue clock evolves at unit rate. -/
@@ -954,37 +1011,6 @@ def delayedStep (_rp _hp rv alo _ad ε w vlo a r h v d : ℝ) :=
       (hstart.2 (by linarith [le_max_right 0 d]))
       (hfinish.2 (by linarith [le_max_right 0 d])) hsafe
 
-def delayChoice (δ ε : ℝ) : SetM ℝ := chooseS {δ, δ + ε}
-
-@[spec] theorem delayChoice_spec (δ ε : ℝ) :
-    ⦃True⦄ delayChoice δ ε ⦃fun _ => True⦄ := by
-  constructor
-  intro _
-  rw [SetM.wp_iff_run]
-  simp
-
-/-- Intrinsic annotation of the selected delayed kyx controller. The two delay
-choices remain exactly `δ` and `δ+ε`; the wrapper equality is proved by `rfl`. -/
-def delayed' (rp hp rv alo ad δ ε r h v w vlo d : ℝ) : SetM DelayedResult
-    requires 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Dimpl rp hp rv alo ad r h v w vlo d
-    ensures res => (res.w = -1 ∨ res.w = 1) ∧
-      Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d
-    := do
-  let mut (r, h, v, w, vlo, d) := (r, h, v, w, vlo, d)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ (w = -1 ∨ w = 1) ∧ Dimpl rp hp rv alo ad r h v w vlo d do
-    let bool ← choose Bool
-    if bool then
-      vlo ← choose ℝ
-      w ← sense
-      d ← delayChoice δ ε
-      ensure (Dimpl rp hp rv alo ad r h v w vlo d)
-    let a ← choose ℝ
-    unless (-ad ≤ w * a) do abort
-    (r, h, v, d, _) ← delayedStep rp hp rv alo ad ε w vlo a r h v d
-  return { r, h, v, w, vlo, d }
-
 theorem delayed_noNMAC (rp hp rv alo ad r h v w vlo d : ℝ)
     (ha : 0 < alo) (hw : (w = -1 ∨ w = 1)) (hsafe : Dimpl rp hp rv alo ad r h v w vlo d) :
     NoNMAC rp hp r h := by
@@ -997,75 +1023,6 @@ theorem delayed_noNMAC (rp hp rv alo ad r h v w vlo d : ℝ)
     rcases hw with rfl | rfl <;>
       norm_num at hsep ⊢ <;> linarith [le_abs_self h, neg_le_abs h]
 
-theorem delayed_eq (rp hp rv alo ad δ ε r h v w vlo d : ℝ) :
-    delayed rp hp rv alo ad δ ε r h v w vlo d =
-      delayed' rp hp rv alo ad δ ε r h v w vlo d := rfl
-
-/-- STTT Theorem 2; the bundled delayed kyx also preserves its implicit region. -/
-theorem delayed_safe :
-    ∀ rp hp rv alo ad δ ε r h v w vlo d,
-      Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) → (w = -1 ∨ w = 1) →
-      Dimpl rp hp rv alo ad r h v w vlo d →
-        ∀ res ∈ SetM.run (delayed rp hp rv alo ad δ ε r h v w vlo d),
-          NoNMAC rp hp res.r res.h ∧
-            Dimpl rp hp rv alo ad res.r res.h res.v res.w res.vlo res.d := by
-  intro rp hp rv alo ad δ ε r h v w vlo d hb _had hw hsafe res hrun
-  rw [delayed_eq] at hrun
-  have hinv := (delayed'.spec rp hp rv alo ad δ ε r h v w vlo d).le_wp
-    ⟨hb.2.2.2, hw, hsafe⟩ res hrun
-  exact ⟨delayed_noNMAC rp hp rv alo ad _ _ _ _ _ _ hb.2.2.2 hinv.1 hinv.2, hinv.2⟩
-
--- Match the real normed-space instance used when elaborating the challenge.
--- The derivative-tactic imports also supply an inner-product-space instance.
-attribute [local instance 2000] NormedField.toNormedSpace
-
-def horizontalDot (rx ry rv : ℝ) : ℝ × ℝ × ℝ × ℝ → ℝ :=
-  fun (x, y, s, _n) => x * rx + y * ry + s * rv
-
-def horizontalEnergy : ℝ × ℝ × ℝ × ℝ → ℝ :=
-  fun (x, y, s, n) => x ^ 2 + y ^ 2 - s ^ 2 - n ^ 2
-
-/-- Preserve the projected horizontal velocity relation before the energy identity. -/
-theorem horizontal_dot_preserved (rx ry rv : ℝ) (hvel : rv ^ 2 = rx ^ 2 + ry ^ 2) :
-    (fun st => horizontalDot rx ry rv st = 0)
-    [[evolve (horizontalMotion rx ry rv) (fun _ => True)]]
-    (fun st => horizontalDot rx ry rv st = 0) := by
-  apply dIeq (horizontalDot rx ry rv) (fun _ => 0)
-  · ode_deriv [horizontalDot, horizontalMotion]
-    linarith
-  · exact fun _ h => h
-  · exact fun _ _ => rfl
-
-/-- The dot relation makes the derivative of the coordinate energy vanish. -/
-theorem horizontal_energy_preserved (rx ry rv : ℝ) (hvel : rv ^ 2 = rx ^ 2 + ry ^ 2) :
-    (fun st => horizontalDot rx ry rv st = 0 ∧ horizontalEnergy st = 0)
-    [[evolve (horizontalMotion rx ry rv) (fun _ => True)]]
-    (fun st => horizontalEnergy st = 0) := by
-  apply dC (cut := fun st => horizontalDot rx ry rv st = 0)
-  · exact fun st h => horizontal_dot_preserved rx ry rv hvel st h.1
-  · apply dIeq horizontalEnergy (fun st => 2 * horizontalDot rx ry rv st)
-    · ode_deriv [horizontalEnergy, horizontalDot, horizontalMotion]
-      linarith
-    · exact fun _ h => h.2
-    · intro st h
-      simp [h.2]
-
-/-- STTT Proposition 1, Eq. (11); no extra nonzero-speed assumption. -/
-theorem horizontal_reduction :
-    ∀ rp rx ry rv x y s n,
-      HorizontalCoordinates rx ry rv x y s n →
-        ∀ x_res y_res s_res n_res,
-          (x_res, y_res, s_res, n_res) ∈
-            SetM.run (evolve (horizontalMotion rx ry rv) (fun _ => True) (x, y, s, n)) →
-            (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := by
-  intro rp rx ry rv x y s n hcoord xr yr sr nr hrun
-  have henergy := horizontal_energy_preserved rx ry rv hcoord.2.2.2 (x, y, s, n)
-    (by constructor <;> dsimp [horizontalDot, horizontalEnergy] <;>
-          linarith [hcoord.1, hcoord.2.2.1])
-    (xr, yr, sr, nr) hrun
-  dsimp [horizontalEnergy] at henergy
-  constructor <;> intro h <;> linarith
-
 /-- An admissible remaining-time region excludes a collision at its current state. -/
 theorem bounded_region_noNMAC (rp hp rv alo aup tl clock r h v w vlo vup : ℝ)
     (ha : 0 < alo) (haup : 0 < aup) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
@@ -1075,54 +1032,6 @@ theorem bounded_region_noNMAC (rp hp rv alo aup tl clock r h v w vlo vup : ℝ)
   · exact lower_bounded_noNMAC rp hp rv alo tl clock r h v w vlo ha hw ht hlo
   · exact upper_bounded_noNMAC rp hp rv aup tl clock r h v w vup haup hw ht hup
 
-/-- Paper Eq. (8), with the remaining-time region invariant on both nested loops. -/
-def bounded' (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) : SetM TimedResult
-    requires 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
-      CimplBounded rp hp rv alo aup tl clock r h v w vlo vup
-    ensures res => (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
-      CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup
-    := do
-  let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
-  let n ← choose ℕ
-  for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
-        CimplBounded rp hp rv alo aup tl clock r h v w vlo vup do
-    vlo ← choose ℝ
-    vup ← choose ℝ
-    w ← sense
-    ensure (CimplBounded rp hp rv alo aup tl 0 r h v w vlo vup)
-    clock := 0
-    let m ← choose Nat
-    for _ in [:m]
-        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
-          CimplBounded rp hp rv alo aup tl clock r h v w vlo vup do
-      let a ← choose ℝ
-      (r, h, v, clock) ← boundedStep rp hp rv alo aup tl w vlo vup a r h v clock
-  return { r, h, v, w, vlo, vup, t := clock }
-
-theorem bounded_eq (rp hp rv alo aup tl r h v w vlo vup clock : ℝ) :
-    bounded rp hp rv alo aup tl r h v w vlo vup clock =
-      bounded' rp hp rv alo aup tl r h v w vlo vup clock := rfl
-
-/-- STTT17 Theorem 4, with weaker precondition (`0 < aup` instead of `alo ≤ aup`) and
-stronger postcondition (+ valid sense, + CimplBounded), following `bounded_implicit.kyx`.
-The paper's initial assumptions are recovered at `t=0` with `alo ≤ aup`. -/
-theorem bounded_safe :
-    ∀ rp hp rv alo aup tl r h v w vlo vup t,
-      Bounds rp hp rv alo ∧ 0 < aup → (w = -1 ∨ w = 1) → (t ≤ tl ∨ tl < 0) →
-      CimplBounded rp hp rv alo aup tl t r h v w vlo vup →
-        ∀ res ∈ SetM.run (bounded rp hp rv alo aup tl r h v w vlo vup t),
-          NoNMAC rp hp res.r res.h ∧ (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
-            CimplBounded rp hp rv alo aup tl res.t res.r res.h res.v res.w res.vlo res.vup := by
-  intro rp hp rv alo aup tl r h v w vlo vup t hb hw ht hsafe res hrun
-  have ha := hb.1.2.2.2
-  have haup := hb.2
-  rw [bounded_eq] at hrun
-  have hinv := (bounded'.spec rp hp rv alo aup tl r h v w vlo vup t).le_wp
-    ⟨ha, haup, hw, ht, hsafe⟩ res hrun
-  exact ⟨bounded_region_noNMAC rp hp rv alo aup tl _ _ _ _ _ _ _
-    ha haup hinv.1 hinv.2.1 hinv.2.2, hinv⟩
-
 /-- The bounded component of either safeable branch implies present safety. -/
 theorem safeable_region_noNMAC (rp hp rv alo aup tl clock vloEx vupEx r h v w vlo vup : ℝ)
     (ha : 0 < alo) (haup : 0 < aup) (hw : (w = -1 ∨ w = 1)) (ht : clock ≤ tl ∨ tl < 0)
@@ -1131,57 +1040,518 @@ theorem safeable_region_noNMAC (rp hp rv alo aup tl clock vloEx vupEx r h v w vl
   apply bounded_region_noNMAC rp hp rv alo aup tl clock r h v w vlo vup ha haup hw ht
   exact hsafe.elim (fun h => Or.inl h.1) (fun h => Or.inr h.1)
 
-/-- Paper Eq. (9), preserving the nominal safeable region on both nested loops. -/
-def safeable' (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
-    SetM TimedResult
-    requires 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧ (clock ≤ tl ∨ tl < 0) ∧
-      CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx
-    ensures res => (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
-      CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
-        res.w res.vlo vloEx res.vup vupEx
+end Scalar
+
+/-! The record-based predicates are equivalent to the original scalar formulas. -/
+namespace Representation
+
+theorem direction_valid (direction : Direction) :
+    direction.sign = -1 ∨ direction.sign = 1 := by
+  cases direction <;> simp [Direction.sign]
+
+def horizonValue : TimeHorizon → ℝ
+  | .unlimited => -1
+  | .bounded duration => duration.val
+
+theorem includes_iff (limit : TimeHorizon) (t tn : ℝ) :
+    limit.includes t tn ↔ tn ≤ horizonValue limit - t ∨ horizonValue limit < 0 := by
+  cases limit with
+  | unlimited => simp [TimeHorizon.includes, horizonValue]
+  | bounded duration => simp [TimeHorizon.includes, horizonValue, not_lt.mpr duration.property]
+
+theorem displacementLo_iff (advisory : Advisory) (alo v t hn : ℝ) :
+    advisory.DisplacementLo alo v t hn ↔
+      Scalar.A alo t hn v advisory.direction.sign advisory.targetv := Iff.rfl
+
+theorem displacementUp_iff (advisory : Advisory) (aup v t hn : ℝ) :
+    advisory.DisplacementUp aup v t hn ↔
+      Scalar.Aup aup t hn v advisory.direction.sign advisory.targetv := Iff.rfl
+
+theorem loSafeFor_iff (advisory : Advisory) (encounter : Encounter) (rp hp rv alo : ℝ) :
+    advisory.LoSafeFor encounter rp hp rv alo ↔
+      Scalar.Limpl rp hp rv alo encounter.r encounter.h encounter.v
+        advisory.direction.sign advisory.targetv := by
+  constructor
+  · intro h t rn hn ⟨hrn, hA⟩
+    subst rn
+    exact h t hn hA
+  · intro h t hn hA
+    exact h t (rv * t) hn ⟨rfl, hA⟩
+
+theorem upSafeFor_iff (advisory : Advisory) (encounter : Encounter) (rp hp rv aup : ℝ) :
+    advisory.UpSafeFor encounter rp hp rv aup ↔
+      Scalar.Uimpl rp hp rv aup encounter.r encounter.h encounter.v
+        advisory.direction.sign advisory.targetv := by
+  constructor
+  · intro h t rn hn ⟨hrn, hA⟩
+    subst rn
+    exact h t hn hA
+  · intro h t hn hA
+    exact h t (rv * t) hn ⟨rfl, hA⟩
+
+theorem delayedSafeFor_iff (advisory : Advisory) (encounter : Encounter)
+    (rp hp rv alo ad d : ℝ) :
+    advisory.DelayedSafeFor encounter rp hp rv alo ad d ↔
+      Scalar.Dimpl rp hp rv alo ad encounter.r encounter.h encounter.v
+        advisory.direction.sign advisory.targetv d := by
+  simp only [Advisory.DelayedSafeFor, AircraftSeparatedLo, displacement,
+    displacementLo_iff, Scalar.Dimpl, neg_mul]
+  constructor
+  · intro h t rn hn hd vd ⟨hrn, hA⟩
+    subst rn
+    exact h t hn hd vd hA
+  · intro h t hn hd vd hA
+    exact h t (rv * t) hn hd vd ⟨rfl, hA⟩
+
+theorem safeFor_iff (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) :
+    advisory.SafeFor encounter rp hp rv alo aup ↔
+      Scalar.Cimpl rp hp rv alo aup encounter.r encounter.h encounter.v
+        advisory.direction.sign advisory.lower advisory.upper := by
+  simp only [TwoSidedAdvisory.SafeFor, loSafeFor_iff, upSafeFor_iff]
+  rfl
+
+theorem loSafeForWithin_iff (advisory : Advisory) (encounter : Encounter)
+    (rp hp rv alo : ℝ) (limit : TimeHorizon) (t : ℝ) :
+    advisory.LoSafeForWithin encounter rp hp rv alo limit t ↔
+      Scalar.LimplBounded rp hp rv alo (horizonValue limit) t
+        encounter.r encounter.h encounter.v advisory.direction.sign advisory.targetv := by
+  simp only [Advisory.LoSafeForWithin, AircraftSeparatedLo, includes_iff,
+    displacementLo_iff, Scalar.LimplBounded]
+  constructor
+  · intro h tn rn hn ⟨ht, hrn, hA⟩
+    subst rn
+    exact h tn hn ⟨ht, hA⟩
+  · intro h tn hn ⟨ht, hA⟩
+    exact h tn (rv * tn) hn ⟨ht, rfl, hA⟩
+
+theorem upSafeForWithin_iff (advisory : Advisory) (encounter : Encounter)
+    (rp hp rv aup : ℝ) (limit : TimeHorizon) (t : ℝ) :
+    advisory.UpSafeForWithin encounter rp hp rv aup limit t ↔
+      Scalar.UimplBounded rp hp rv aup (horizonValue limit) t
+        encounter.r encounter.h encounter.v advisory.direction.sign advisory.targetv := by
+  simp only [Advisory.UpSafeForWithin, AircraftSeparatedUp, includes_iff,
+    displacementUp_iff, Scalar.UimplBounded]
+  constructor
+  · intro h tn rn hn ⟨ht, hrn, hA⟩
+    subst rn
+    exact h tn hn ⟨ht, hA⟩
+  · intro h tn hn ⟨ht, hA⟩
+    exact h tn (rv * tn) hn ⟨ht, rfl, hA⟩
+
+theorem safeForWithin_iff (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) (limit : TimeHorizon) (t : ℝ) :
+    advisory.SafeForWithin encounter rp hp rv alo aup limit t ↔
+      Scalar.CimplBounded rp hp rv alo aup (horizonValue limit) t
+        encounter.r encounter.h encounter.v advisory.direction.sign
+        advisory.lower advisory.upper := by
+  simp only [TwoSidedAdvisory.SafeForWithin, loSafeForWithin_iff, upSafeForWithin_iff]
+  rfl
+
+theorem endpointLo_iff (advisory : Advisory) (alo v τ hn vn : ℝ) :
+    advisory.EndpointLo alo v τ hn vn ↔
+      Scalar.lowerEndpoint alo τ hn vn v advisory.direction.sign advisory.targetv := by
+  by_cases h : τ < advisory.shortfallOf v / alo
+  · simp only [Advisory.EndpointLo, Advisory.DisplacementLo, Scalar.lowerEndpoint,
+      displacement, Advisory.shortfallOf, Scalar.maxI, h, not_le_of_gt h,
+      true_and, false_and, or_false, and_assoc]
+    tauto
+  · simp only [Advisory.EndpointLo, Advisory.DisplacementLo, Scalar.lowerEndpoint,
+      displacement, Advisory.shortfallOf, Scalar.maxI, h, le_of_not_gt h,
+      true_and, and_false, false_and, false_or]
+
+theorem endpointUp_iff (advisory : Advisory) (aup v τ hn vn : ℝ) :
+    advisory.EndpointUp aup v τ hn vn ↔
+      Scalar.upperEndpoint aup τ hn vn v advisory.direction.sign advisory.targetv := by
+  by_cases h : τ < advisory.shortfallOf v / aup
+  · simp only [Advisory.EndpointUp, Advisory.DisplacementUp, Scalar.upperEndpoint,
+      displacement, Advisory.shortfallOf, Scalar.maxI, h, not_le_of_gt h,
+      true_and, false_and, or_false, and_assoc]
+    tauto
+  · simp only [Advisory.EndpointUp, Advisory.DisplacementUp, Scalar.upperEndpoint,
+      displacement, Advisory.shortfallOf, Scalar.maxI, h, le_of_not_gt h,
+      true_and, and_false, false_and, false_or]
+
+theorem safeableFor_iff (advisory : TwoSidedAdvisory) (encounter : Encounter)
+    (rp hp rv alo aup : ℝ) (duration : Duration) (t vloEx vupEx : ℝ) :
+    advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx ↔
+      Scalar.CimplSafeable rp hp rv alo aup duration.val t
+        encounter.r encounter.h encounter.v advisory.direction.sign
+        advisory.lower vloEx advisory.upper vupEx := by
+  simp only [TwoSidedAdvisory.SafeableFor, loSafeForWithin_iff, upSafeForWithin_iff,
+    endpointLo_iff, endpointUp_iff, loSafeFor_iff, horizonValue,
+    Scalar.CimplSafeable, TwoSidedAdvisory.lowerAdvisory, TwoSidedAdvisory.upperAdvisory]
+  cases advisory.direction <;> simp [Direction.sign]
+
+end Representation
+
+
+namespace Controller
+
+open Representation
+
+def lowerStep (_rp _hp rv alo a : ℝ) (encounter : Encounter) (advisory : Advisory) :=
+  evolve (motionODE rv a) (domainLo alo a advisory) (encounter.r, encounter.h, encounter.v)
+
+@[spec] theorem lowerStep_spec (rp hp rv alo a : ℝ) (encounter : Encounter)
+    (advisory : Advisory) :
+    ⦃0 < alo ∧ advisory.LoSafeFor encounter rp hp rv alo⦄
+    lowerStep rp hp rv alo a encounter advisory
+    ⦃fun (r, h, v) => advisory.LoSafeFor ⟨r, h, v⟩ rp hp rv alo⦄ := by
+  constructor
+  intro ⟨ha, hs⟩ result hrun
+  exact (loSafeFor_iff ..).mpr
+    ((Scalar.lowerStep_spec rp hp rv alo advisory.direction.sign advisory.targetv a
+      encounter.r encounter.h encounter.v).le_wp
+      ⟨ha, direction_valid _, (loSafeFor_iff ..).mp hs⟩ result hrun)
+
+def delayedStep (_rp _hp rv alo _ad ε a : ℝ) (encounter : Encounter)
+    (advisory : Advisory) (d : ℝ) :=
+  evolve (withDelayODE rv a) (domainDelayed alo ε a advisory)
+    (encounter.r, encounter.h, encounter.v, d, 0)
+
+@[spec] theorem delayedStep_spec (rp hp rv alo ad ε a : ℝ) (encounter : Encounter)
+    (advisory : Advisory) (d : ℝ) :
+    ⦃0 < alo ∧ -ad ≤ advisory.direction.sign * a ∧
+      advisory.DelayedSafeFor encounter rp hp rv alo ad d⦄
+    delayedStep rp hp rv alo ad ε a encounter advisory d
+    ⦃fun (r, h, v, d, _) => advisory.DelayedSafeFor ⟨r, h, v⟩ rp hp rv alo ad d⦄ := by
+  constructor
+  intro ⟨ha, hacc, hs⟩ result hrun
+  exact (delayedSafeFor_iff ..).mpr
+    ((Scalar.delayedStep_spec rp hp rv alo ad ε advisory.direction.sign advisory.targetv a
+      encounter.r encounter.h encounter.v d).le_wp
+      ⟨ha, direction_valid _, hacc, (delayedSafeFor_iff ..).mp hs⟩ result hrun)
+
+def twoSidedStep (_rp _hp rv alo aup a : ℝ) (encounter : Encounter) (advisory : TwoSidedAdvisory) :=
+  evolve (motionODE rv a) (domainTwoSided alo aup a advisory)
+    (encounter.r, encounter.h, encounter.v)
+
+@[spec] theorem twoSidedStep_spec (rp hp rv alo aup a : ℝ) (encounter : Encounter)
+    (advisory : TwoSidedAdvisory) :
+    ⦃0 < alo ∧ 0 < aup ∧ advisory.SafeFor encounter rp hp rv alo aup⦄
+    twoSidedStep rp hp rv alo aup a encounter advisory
+    ⦃fun (r, h, v) => advisory.SafeFor ⟨r, h, v⟩ rp hp rv alo aup⦄ := by
+  constructor
+  intro ⟨ha, haup, hs⟩ result hrun
+  exact (safeFor_iff ..).mpr
+    ((Scalar.twoSidedStep_spec rp hp rv alo aup advisory.direction.sign advisory.lower
+      advisory.upper a encounter.r encounter.h encounter.v).le_wp
+      ⟨ha, haup, direction_valid _, (safeFor_iff ..).mp hs⟩ result hrun)
+
+theorem domainClocked_eq (alo aup : ℝ) (limit : TimeHorizon) (a : ℝ)
+    (advisory : TwoSidedAdvisory) :
+    domainClocked alo aup limit a advisory =
+      Scalar.clockedDomain alo aup (horizonValue limit) advisory.direction.sign
+        advisory.lower advisory.upper a := by
+  funext ⟨r, h, v, t⟩
+  apply propext
+  simp only [domainClocked, Scalar.clockedDomain, includes_iff, sub_zero]
+  rfl
+
+def boundedStep (_rp _hp rv alo aup : ℝ) (limit : TimeHorizon) (a : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :=
+  evolve (motionClockedODE rv a) (domainClocked alo aup limit a advisory)
+    (encounter.r, encounter.h, encounter.v, t)
+
+@[spec] theorem boundedStep_spec (rp hp rv alo aup : ℝ) (limit : TimeHorizon) (a : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :
+    ⦃0 < alo ∧ 0 < aup ∧ advisory.SafeForWithin encounter rp hp rv alo aup limit t⦄
+    boundedStep rp hp rv alo aup limit a encounter advisory t
+    ⦃fun (r, h, v, t) => limit.includes 0 t ∧
+      advisory.SafeForWithin ⟨r, h, v⟩ rp hp rv alo aup limit t⦄ := by
+  constructor
+  intro ⟨ha, haup, hs⟩ result hrun
+  rw [boundedStep, domainClocked_eq] at hrun
+  have h := (Scalar.boundedStep_spec rp hp rv alo aup (horizonValue limit)
+    advisory.direction.sign advisory.lower advisory.upper a
+    encounter.r encounter.h encounter.v t).le_wp
+    ⟨ha, haup, direction_valid _, (safeForWithin_iff ..).mp hs⟩ result hrun
+  exact ⟨(includes_iff ..).mpr (by simpa only [sub_zero] using h.1),
+    (safeForWithin_iff ..).mpr h.2⟩
+
+def safeableStep (_rp _hp rv alo aup : ℝ) (duration : Duration) (_vloEx _vupEx a : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :=
+  evolve (motionClockedODE rv a) (domainClocked alo aup (.bounded duration) a advisory)
+    (encounter.r, encounter.h, encounter.v, t)
+
+@[spec] theorem safeableStep_spec (rp hp rv alo aup : ℝ) (duration : Duration)
+    (vloEx vupEx a : ℝ) (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :
+    ⦃0 < alo ∧ 0 < aup ∧ advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx⦄
+    safeableStep rp hp rv alo aup duration vloEx vupEx a encounter advisory t
+    ⦃fun (r, h, v, t) => t ≤ duration.val ∧
+      advisory.SafeableFor ⟨r, h, v⟩ rp hp rv alo aup duration t vloEx vupEx⦄ := by
+  constructor
+  intro ⟨ha, haup, hs⟩ result hrun
+  rw [safeableStep, domainClocked_eq] at hrun
+  have h := (Scalar.safeableStep_spec rp hp rv alo aup duration.val vloEx vupEx
+    advisory.direction.sign advisory.lower advisory.upper a
+    encounter.r encounter.h encounter.v t).le_wp
+    ⟨ha, haup, duration.property, direction_valid _, (safeableFor_iff ..).mp hs⟩ result hrun
+  exact ⟨h.1.resolve_right (not_lt.mpr duration.property), (safeableFor_iff ..).mpr h.2⟩
+
+end Controller
+
+namespace Controller
+
+-- Keep VC matching from unfolding the trajectory let-bindings inside safe-region predicates.
+set_option allowUnsafeReducibility true in
+attribute [local irreducible] Advisory.LoSafeFor Advisory.UpSafeFor
+  Advisory.DelayedSafeFor TwoSidedAdvisory.SafeFor Advisory.LoSafeForWithin
+  Advisory.UpSafeForWithin TwoSidedAdvisory.SafeForWithin TwoSidedAdvisory.SafeableFor
+
+def immediateResponseProgAnnotated
+    (rp hp rv alo : ℝ) (encounter : Encounter) (advisory : Advisory) : SetM Result
+    requires 0 < alo ∧ advisory.LoSafeFor encounter rp hp rv alo
+    ensures res => res.advisory.LoSafeFor res.encounter rp hp rv alo
     := do
-  let mut (r, h, v, w, vlo, vup, clock) := (r, h, v, w, vlo, vup, clock)
+  let mut (encounter, advisory) := (encounter, advisory)
   let n ← choose ℕ
   for _ in [:n]
-      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧
-        (clock ≤ tl ∨ tl < 0) ∧
-        CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx do
-    vlo ← choose ℝ
-    vup ← choose ℝ
-    w ← sense
-    ensure (CimplSafeable rp hp rv alo aup tl 0 r h v w vlo vloEx vup vupEx)
-    clock := 0
-    let m ← choose Nat
+      invariant _pref _suff => 0 < alo ∧ advisory.LoSafeFor encounter rp hp rv alo do
+    let replace ← choose Bool
+    if replace then
+      advisory ← choose Advisory
+      ensure (advisory.LoSafeFor encounter rp hp rv alo)
+    let a ← choose ℝ
+    let (r, h, v) ← lowerStep rp hp rv alo a encounter advisory
+    encounter := { r, h, v }
+  return { encounter, advisory }
+
+theorem immediateResponseProg_eq
+    (rp hp rv alo : ℝ) (encounter : Encounter) (advisory : Advisory) :
+    ACASX.immediateResponseProg rp hp rv alo encounter advisory =
+      immediateResponseProgAnnotated rp hp rv alo encounter advisory := rfl
+
+def delayedResponseProgAnnotated (rp hp rv alo ad δ ε : ℝ)
+    (encounter : Encounter) (advisory : Advisory) (d : ℝ) : SetM DelayedResult
+    requires 0 < alo ∧ advisory.DelayedSafeFor encounter rp hp rv alo ad d
+    ensures res => res.advisory.DelayedSafeFor res.encounter rp hp rv alo ad res.d
+    := do
+  let mut (encounter, advisory, d) := (encounter, advisory, d)
+  let n ← choose ℕ
+  for _ in [:n]
+      invariant _pref _suff => 0 < alo ∧ advisory.DelayedSafeFor encounter rp hp rv alo ad d do
+    let replace ← choose Bool
+    if replace then
+      advisory ← choose Advisory
+      d ← chooseFrom {δ, δ + ε}
+      ensure (advisory.DelayedSafeFor encounter rp hp rv alo ad d)
+    let a ← choose ℝ
+    unless -ad ≤ advisory.direction.sign * a do abort
+    let (r, h, v, nextDelay, _) ← delayedStep rp hp rv alo ad ε a encounter advisory d
+    encounter := { r, h, v }
+    d := nextDelay
+  return { encounter, advisory, d }
+
+theorem delayedResponseProg_eq (rp hp rv alo ad δ ε : ℝ)
+    (encounter : Encounter) (advisory : Advisory) (d : ℝ) :
+    ACASX.delayedResponseProg rp hp rv alo ad δ ε encounter advisory d =
+      delayedResponseProgAnnotated rp hp rv alo ad δ ε encounter advisory d := rfl
+
+def twoSidedResponseProgAnnotated (rp hp rv alo aup : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) : SetM TwoSidedResult
+    requires 0 < alo ∧ 0 < aup ∧ advisory.SafeFor encounter rp hp rv alo aup
+    ensures res => res.advisory.SafeFor res.encounter rp hp rv alo aup
+    := do
+  let mut (encounter, advisory) := (encounter, advisory)
+  let n ← choose ℕ
+  for _ in [:n]
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ advisory.SafeFor encounter rp hp rv alo aup do
+    let replace ← choose Bool
+    if replace then
+      advisory ← choose TwoSidedAdvisory
+      ensure (advisory.SafeFor encounter rp hp rv alo aup)
+    let a ← choose ℝ
+    let (r, h, v) ← twoSidedStep rp hp rv alo aup a encounter advisory
+    encounter := { r, h, v }
+  return { encounter, advisory }
+
+theorem twoSidedResponseProg_eq (rp hp rv alo aup : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) :
+    ACASX.twoSidedResponseProg rp hp rv alo aup encounter advisory =
+      twoSidedResponseProgAnnotated rp hp rv alo aup encounter advisory := rfl
+
+end Controller
+
+namespace Controller
+
+@[simp] theorem horizon_includes_zero (limit : TimeHorizon) : limit.includes 0 0 := by
+  cases limit with
+  | unlimited => trivial
+  | bounded duration => simpa [TimeHorizon.includes] using duration.property
+
+def boundedResponseProgAnnotated (rp hp rv alo aup : ℝ) (limit : TimeHorizon)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) : SetM TimedResult
+    requires 0 < alo ∧ 0 < aup ∧ limit.includes 0 t ∧
+      advisory.SafeForWithin encounter rp hp rv alo aup limit t
+    ensures res => limit.includes 0 res.t ∧
+      res.advisory.SafeForWithin res.encounter rp hp rv alo aup limit res.t
+    := do
+  let mut (encounter, advisory, t) := (encounter, advisory, t)
+  let n ← choose ℕ
+  for _ in [:n]
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ limit.includes 0 t ∧
+        advisory.SafeForWithin encounter rp hp rv alo aup limit t do
+    advisory ← choose TwoSidedAdvisory
+    ensure (advisory.SafeForWithin encounter rp hp rv alo aup limit 0)
+    t := 0
+    let m ← choose ℕ
     for _ in [:m]
-        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ 0 ≤ tl ∧ (w = -1 ∨ w = 1) ∧
-          (clock ≤ tl ∨ tl < 0) ∧
-          CimplSafeable rp hp rv alo aup tl clock r h v w vlo vloEx vup vupEx do
+        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ limit.includes 0 t ∧
+          advisory.SafeForWithin encounter rp hp rv alo aup limit t do
       let a ← choose ℝ
-      (r, h, v, clock) ← safeableStep rp hp rv alo aup tl vloEx vupEx w vlo vup a r h v clock
-  return { r, h, v, w, vlo, vup, t := clock }
+      let (r, h, v, newTime) ← boundedStep rp hp rv alo aup limit a encounter advisory t
+      encounter := { r, h, v }
+      t := newTime
+  return { encounter, advisory, t }
+where finally
+  | spec => all_goals simp_all only [horizon_includes_zero, true_and]
 
-theorem safeable_eq (rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock : ℝ) :
-    safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock =
-      safeable' rp hp rv alo aup tl vloEx vupEx r h v w vlo vup clock := rfl
+theorem boundedResponseProg_eq (rp hp rv alo aup : ℝ) (limit : TimeHorizon)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :
+    ACASX.boundedResponseProg rp hp rv alo aup limit encounter advisory t =
+      boundedResponseProgAnnotated rp hp rv alo aup limit encounter advisory t := rfl
 
-/-- STTT17 Theorem 5, with the stronger postcondition (+ valid sense, clock bound, CimplSafeable).
-As above, `t=0` recovers the paper's initial full horizon. The postcondition preserves
-the nominal safeable region; it does not assert nonblocking or existence of a next advisory. -/
-theorem safeable_safe :
-    ∀ rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t,
-      Bounds rp hp rv alo → alo ≤ aup → 0 ≤ tl → (w = -1 ∨ w = 1) → (t ≤ tl ∨ tl < 0) →
-      CimplSafeable rp hp rv alo aup tl t r h v w vlo vloEx vup vupEx →
-        ∀ res ∈ SetM.run (safeable rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t),
-          NoNMAC rp hp res.r res.h ∧ (res.w = -1 ∨ res.w = 1) ∧ (res.t ≤ tl ∨ tl < 0) ∧
-            CimplSafeable rp hp rv alo aup tl res.t res.r res.h res.v
-              res.w res.vlo vloEx res.vup vupEx := by
-  intro rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t hb haup htl hw ht hsafe res hrun
+def safeableResponseProgAnnotated (rp hp rv alo aup : ℝ) (duration : Duration) (vloEx vupEx : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) : SetM TimedResult
+    requires 0 < alo ∧ 0 < aup ∧ t ≤ duration.val ∧
+      advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx
+    ensures res => res.t ≤ duration.val ∧
+      res.advisory.SafeableFor res.encounter rp hp rv alo aup duration res.t vloEx vupEx
+    := do
+  let mut (encounter, advisory, t) := (encounter, advisory, t)
+  let n ← choose ℕ
+  for _ in [:n]
+      invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ t ≤ duration.val ∧
+        advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx do
+    advisory ← choose TwoSidedAdvisory
+    ensure (advisory.SafeableFor encounter rp hp rv alo aup duration 0 vloEx vupEx)
+    t := 0
+    let m ← choose ℕ
+    for _ in [:m]
+        invariant _pref _suff => 0 < alo ∧ 0 < aup ∧ t ≤ duration.val ∧
+          advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx do
+      let a ← choose ℝ
+      let (r, h, v, newTime) ← safeableStep rp hp rv alo aup duration vloEx vupEx a
+        encounter advisory t
+      encounter := { r, h, v }
+      t := newTime
+  return { encounter, advisory, t }
+
+theorem safeableResponseProg_eq (rp hp rv alo aup : ℝ) (duration : Duration) (vloEx vupEx : ℝ)
+    (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ) :
+    ACASX.safeableResponseProg rp hp rv alo aup duration vloEx vupEx encounter advisory t =
+      safeableResponseProgAnnotated rp hp rv alo aup duration vloEx vupEx
+        encounter advisory t := rfl
+
+end Controller
+
+open Representation Controller
+
+/--
+Immediate response avoids a near mid-air collision and preserves the lower safe
+region, assuming the initial encounter is safe and the parameter bounds hold.
+See Theorem 1.
+-/
+theorem immediate_safe :
+    ∀ (rp hp rv alo : ℝ) (encounter : Encounter) (advisory : Advisory),
+      Bounds rp hp rv alo →
+        advisory.LoSafeFor encounter rp hp rv alo →
+          ∀ res ∈ SetM.run (immediateResponseProg rp hp rv alo encounter advisory),
+            NoNMAC rp hp res.encounter ∧
+            res.advisory.LoSafeFor res.encounter rp hp rv alo  := by
+  intro rp hp rv alo encounter advisory hb hs res hrun
+  rw [immediateResponseProg_eq] at hrun
+  have hs' := (immediateResponseProgAnnotated.spec rp hp rv alo encounter advisory).le_wp
+    ⟨hb.2.2.2, hs⟩ res hrun
+  exact ⟨Scalar.lower_implies_noNMAC rp hp rv alo _ _ _ _ _
+    hb.2.2.2 (direction_valid _) ((loSafeFor_iff ..).mp hs'), hs'⟩
+
+/--
+Delayed response avoids a near mid-air collision and preserves the delayed safe
+region for the returned encounter, advisory, and remaining delay, under the stated bounds.
+See Theorem 2.
+-/
+theorem delayed_safe :
+    ∀ (rp hp rv alo ad δ ε : ℝ) (encounter : Encounter) (advisory : Advisory) (d : ℝ),
+      Bounds rp hp rv alo → (0 ≤ ad ∧ 0 ≤ δ ∧ 0 ≤ ε) →
+        advisory.DelayedSafeFor encounter rp hp rv alo ad d →
+          ∀ res ∈ SetM.run (delayedResponseProg rp hp rv alo ad δ ε encounter advisory d),
+            NoNMAC rp hp res.encounter ∧
+            res.advisory.DelayedSafeFor res.encounter rp hp rv alo ad res.d  := by
+  intro rp hp rv alo ad δ ε encounter advisory d hb _ hs res hrun
+  rw [delayedResponseProg_eq] at hrun
+  have hs' := (delayedResponseProgAnnotated.spec rp hp rv alo ad δ ε encounter advisory d).le_wp
+    ⟨hb.2.2.2, hs⟩ res hrun
+  exact ⟨Scalar.delayed_noNMAC rp hp rv alo ad _ _ _ _ _ _
+    hb.2.2.2 (direction_valid _) ((delayedSafeFor_iff ..).mp hs'), hs'⟩
+
+/--
+Two-sided response avoids a near mid-air collision from a safe initial encounter,
+assuming the parameter bounds and `alo ≤ aup`. See Theorem 3.
+-/
+theorem two_sided_safe :
+    ∀ (rp hp rv alo aup : ℝ) (encounter : Encounter) (advisory : TwoSidedAdvisory),
+      Bounds rp hp rv alo → alo ≤ aup →
+        advisory.SafeFor encounter rp hp rv alo aup →
+          ∀ res ∈ SetM.run (twoSidedResponseProg rp hp rv alo aup encounter advisory),
+            NoNMAC rp hp res.encounter  := by
+  intro rp hp rv alo aup encounter advisory hb haup hs res hrun
   have ha := hb.2.2.2
-  have haup := ha.trans_le haup
-  rw [safeable_eq] at hrun
-  have hinv := (safeable'.spec rp hp rv alo aup tl vloEx vupEx r h v w vlo vup t).le_wp
-    ⟨ha, haup, htl, hw, ht, hsafe⟩ res hrun
-  exact ⟨safeable_region_noNMAC rp hp rv alo aup tl _ vloEx vupEx _ _ _ _ _ _
-    ha haup hinv.1 hinv.2.1 hinv.2.2, hinv⟩
+  rw [twoSidedResponseProg_eq] at hrun
+  have hs' := (twoSidedResponseProgAnnotated.spec rp hp rv alo aup encounter advisory).le_wp
+    ⟨ha, ha.trans_le haup, hs⟩ res hrun
+  rcases (safeFor_iff ..).mp hs' with hlo | hup
+  · exact Scalar.lower_implies_noNMAC rp hp rv alo _ _ _ _ _ ha (direction_valid _) hlo
+  · exact Scalar.upper_implies_noNMAC rp hp rv aup _ _ _ _ _
+      (ha.trans_le haup) (direction_valid _) hup
+
+/--
+Bounded-time response avoids a near mid-air collision and preserves safety for the
+remaining horizon, assuming an initially safe encounter within the horizon. See Theorem 4.
+-/
+theorem bounded_safe :
+    ∀ (rp hp rv alo aup : ℝ) (limit : TimeHorizon) (encounter : Encounter)
+      (advisory : TwoSidedAdvisory) (t : ℝ),
+      Bounds rp hp rv alo ∧ 0 < aup → limit.includes 0 t →
+        advisory.SafeForWithin encounter rp hp rv alo aup limit t →
+          ∀ res ∈ SetM.run (boundedResponseProg rp hp rv alo aup limit encounter advisory t),
+            NoNMAC rp hp res.encounter ∧ limit.includes 0 res.t ∧
+            res.advisory.SafeForWithin res.encounter rp hp rv alo aup limit res.t  := by
+  intro rp hp rv alo aup limit encounter advisory t hb ht hs res hrun
+  rw [boundedResponseProg_eq] at hrun
+  have hs' := (boundedResponseProgAnnotated.spec rp hp rv alo aup limit encounter advisory t).le_wp
+    ⟨hb.1.2.2.2, hb.2, ht, hs⟩ res hrun
+  refine ⟨?_, hs'⟩
+  exact Scalar.bounded_region_noNMAC rp hp rv alo aup (horizonValue limit) res.t
+    _ _ _ _ _ _ hb.1.2.2.2 hb.2 (direction_valid _)
+    (by simpa only [sub_zero] using (includes_iff ..).mp hs'.1)
+    ((safeForWithin_iff ..).mp hs'.2)
+
+/--
+Safeable response avoids a near mid-air collision and preserves the clock bound
+and availability of an unlimited-time safe follow-up, under the stated assumptions.
+See Theorem 5.
+-/
+theorem safeable_safe :
+    ∀ (rp hp rv alo aup : ℝ) (duration : Duration) (vloEx vupEx : ℝ)
+      (encounter : Encounter) (advisory : TwoSidedAdvisory) (t : ℝ),
+      Bounds rp hp rv alo → alo ≤ aup → t ≤ duration.val →
+        advisory.SafeableFor encounter rp hp rv alo aup duration t vloEx vupEx →
+          ∀ res ∈ SetM.run (safeableResponseProg
+              rp hp rv alo aup duration vloEx vupEx encounter advisory t),
+            NoNMAC rp hp res.encounter ∧ res.t ≤ duration.val ∧
+            res.advisory.SafeableFor
+              res.encounter rp hp rv alo aup duration res.t vloEx vupEx  := by
+  intro rp hp rv alo aup duration vloEx vupEx encounter advisory t hb haup ht hs res hrun
+  have ha := hb.2.2.2
+  rw [safeableResponseProg_eq] at hrun
+  have hs' := (safeableResponseProgAnnotated.spec rp hp rv alo aup duration vloEx vupEx
+    encounter advisory t).le_wp ⟨ha, ha.trans_le haup, ht, hs⟩ res hrun
+  refine ⟨?_, hs'⟩
+  exact Scalar.safeable_region_noNMAC rp hp rv alo aup duration.val res.t vloEx vupEx
+    _ _ _ _ _ _ ha (ha.trans_le haup) (direction_valid _) (Or.inl hs'.1)
+    ((safeableFor_iff ..).mp hs'.2)
 
 end ACASX

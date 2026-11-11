@@ -5,6 +5,10 @@ open CPSLib
 
 namespace ACASX
 
+namespace ExplicitScalar
+
+open Scalar
+
 /-- Twice the signed nominal height in time coordinates scaled by `alo`.
 The velocity arguments are already signed by `w`. -/
 noncomputable def nominal (v target t : ℝ) : ℝ :=
@@ -1730,5 +1734,173 @@ theorem bounded_explicit_unbounded (rp hp rv alo aup tl r h v w vlo vup : ℝ)
       Cexpl rp hp rv alo aup r h v w vlo vup := by
   simp [CexplBoundedHat, LexplBoundedHat, UexplBoundedHat, LexplBounded, UexplBounded,
     Cexpl, Lexpl, Uexpl, horizonCase, ht, not_le.mpr ht]
+
+end ExplicitScalar
+
+open Representation
+
+/-- The lower endpoint predicate agrees with the explicit height and velocity. -/
+theorem Advisory.endpointLo_iff_exit (advisory : Advisory) (alo v t hn vn : ℝ)
+    (ht : 0 ≤ t) :
+    advisory.EndpointLo alo v t hn vn ↔
+      hn = (lowerExit alo t v advisory.direction.sign advisory.targetv).1 ∧
+        vn = (lowerExit alo t v advisory.direction.sign advisory.targetv).2 :=
+  (endpointLo_iff ..).trans (ExplicitScalar.lowerEndpoint_iff_exit _ _ _ _ _ _ _ ht)
+
+/-- The upper endpoint predicate agrees with the explicit height and velocity. -/
+theorem Advisory.endpointUp_iff_exit (advisory : Advisory) (aup v t hn vn : ℝ)
+    (ht : 0 ≤ t) :
+    advisory.EndpointUp aup v t hn vn ↔
+      hn = (upperExit aup t v advisory.direction.sign advisory.targetv).1 ∧
+        vn = (upperExit aup t v advisory.direction.sign advisory.targetv).2 :=
+  (endpointUp_iff ..).trans (ExplicitScalar.upperEndpoint_iff_exit _ _ _ _ _ _ _ ht)
+
+/-- The explicit lower region equals `LoSafeFor`. (see Lemma 1) -/
+theorem immediate_regions_equivalent :
+    ∀ (rp hp rv alo : ℝ) (encounter : Encounter) (advisory : Advisory),
+      Bounds rp hp rv alo →
+        (advisory.LoSafeForExplicit encounter rp hp rv alo ↔
+          advisory.LoSafeFor encounter rp hp rv alo) := by
+  intro rp hp rv alo encounter advisory hb
+  exact (ExplicitScalar.immediate_regions_equivalent rp hp rv alo encounter.r encounter.h
+    encounter.v advisory.direction.sign advisory.targetv hb (direction_valid _)).trans
+    (loSafeFor_iff ..).symm
+
+/-- The explicit delayed region equals `DelayedSafeFor`. (see Lemma 2) -/
+theorem delayed_regions_equivalent :
+    ∀ (rp hp rv alo ad : ℝ) (encounter : Encounter) (advisory : Advisory) (d : ℝ),
+      Bounds rp hp rv alo → 0 ≤ ad →
+        (advisory.DelayedSafeForExplicit encounter rp hp rv alo ad d ↔
+          advisory.DelayedSafeFor encounter rp hp rv alo ad d) := by
+  intro rp hp rv alo ad encounter advisory d hb had
+  exact (ExplicitScalar.delayed_regions_equivalent rp hp rv alo ad encounter.r encounter.h
+    encounter.v advisory.direction.sign advisory.targetv d hb had (direction_valid _)).trans
+    (delayedSafeFor_iff ..).symm
+
+/-- The explicit two-sided region equals `SafeFor`. (see Lemma 3) -/
+theorem two_sided_regions_equivalent :
+    ∀ (rp hp rv alo aup : ℝ) (encounter : Encounter) (advisory : TwoSidedAdvisory),
+      Bounds rp hp rv alo → alo ≤ aup →
+        (advisory.SafeForExplicit encounter rp hp rv alo aup ↔
+          advisory.SafeFor encounter rp hp rv alo aup) := by
+  intro rp hp rv alo aup encounter advisory hb ha
+  exact (ExplicitScalar.two_sided_regions_equivalent rp hp rv alo aup encounter.r encounter.h
+    encounter.v advisory.direction.sign advisory.lower advisory.upper hb ha
+    (direction_valid _)).trans (safeFor_iff ..).symm
+
+/-- The explicit bounded region equals `SafeForWithin` at clock zero. (see Lemma 4) -/
+theorem bounded_regions_equivalent :
+    ∀ (rp hp rv alo aup : ℝ) (limit : TimeHorizon) (encounter : Encounter)
+      (advisory : TwoSidedAdvisory),
+      Bounds rp hp rv alo → alo ≤ aup →
+        (advisory.SafeForWithinExplicit encounter rp hp rv alo aup limit ↔
+          advisory.SafeForWithin encounter rp hp rv alo aup limit 0) := by
+  intro rp hp rv alo aup limit encounter advisory hb ha
+  exact (ExplicitScalar.bounded_regions_equivalent rp hp rv alo aup limit.explicitBound
+    encounter.r encounter.h encounter.v advisory.direction.sign advisory.lower advisory.upper
+    hb ha (direction_valid _)).trans (safeForWithin_iff ..).symm
+
+/-- A safe strengthening or reversal implies the corresponding endpoint bound. (see Lemma 5) -/
+theorem endpoint_cases_redundant :
+    ∀ (rp hp rv alo aup : ℝ) (duration : Duration) (encounter : Encounter)
+      (advisory : TwoSidedAdvisory) (vloEx vupEx : ℝ),
+      Bounds rp hp rv alo → alo ≤ aup →
+        (∀ hn vn, advisory.lowerAdvisory.EndpointLo alo encounter.v duration.val hn vn →
+          let next : Advisory := { direction := advisory.direction, targetv := vloEx }
+          let nextEncounter : Encounter :=
+            { r := encounter.r - rv * duration.val, h := encounter.h - hn, v := vn }
+          next.LoSafeForExplicit nextEncounter rp hp rv alo →
+            horizonCase rp rv duration.val encounter.r →
+              bound15 hp alo duration.val encounter.h encounter.v advisory.direction.sign
+                advisory.lower) ∧
+        (∀ hn vn, advisory.upperAdvisory.EndpointUp aup encounter.v duration.val hn vn →
+          let reverse := if advisory.direction = .down then .up else .down
+          let next : Advisory := { direction := reverse, targetv := vupEx }
+          let nextEncounter : Encounter :=
+            { r := encounter.r - rv * duration.val, h := encounter.h - hn, v := vn }
+          next.LoSafeForExplicit nextEncounter rp hp rv alo →
+            horizonCase rp rv duration.val encounter.r →
+              bound16 hp aup duration.val encounter.h encounter.v advisory.direction.sign
+                advisory.upper) := by
+  intro rp hp rv alo aup duration encounter advisory vloEx vupEx hb ha
+  constructor
+  · intro hn vn he
+    obtain ⟨rfl, rfl⟩ := (Advisory.endpointLo_iff_exit _ _ _ _ _ _ duration.property).mp he
+    exact ExplicitScalar.lower_endpoint_case_redundant rp hp rv alo duration.val
+      encounter.r encounter.h encounter.v advisory.direction.sign advisory.lower vloEx
+      hb (direction_valid _)
+  · intro hn vn he
+    obtain ⟨rfl, rfl⟩ := (Advisory.endpointUp_iff_exit _ _ _ _ _ _ duration.property).mp he
+    have hr : (if advisory.direction = .down then Direction.up else .down).sign =
+        -advisory.direction.sign := by
+      cases advisory.direction <;> simp [Direction.sign]
+    simpa only [Advisory.LoSafeForExplicit, TwoSidedAdvisory.upperAdvisory, hr] using
+      (ExplicitScalar.upper_endpoint_case_redundant rp hp rv alo aup duration.val
+        encounter.r encounter.h encounter.v advisory.direction.sign advisory.upper vupEx
+        hb ha (direction_valid _))
+
+/-- The explicit safeable region equals `SafeableFor` at clock zero. (see Lemma 6) -/
+theorem safeable_regions_equivalent :
+    ∀ (rp hp rv alo aup : ℝ) (duration : Duration) (encounter : Encounter)
+      (advisory : TwoSidedAdvisory) (vloEx vupEx : ℝ),
+      Bounds rp hp rv alo → alo ≤ aup →
+        (advisory.SafeableForExplicit encounter rp hp rv alo aup duration vloEx vupEx ↔
+          advisory.SafeableFor encounter rp hp rv alo aup duration 0 vloEx vupEx) := by
+  intro rp hp rv alo aup duration encounter advisory vloEx vupEx hb ha
+  exact (ExplicitScalar.safeable_regions_equivalent rp hp rv alo aup duration.val
+    encounter.r encounter.h encounter.v advisory.direction.sign advisory.lower vloEx
+    advisory.upper vupEx hb ha duration.property (direction_valid _)).trans
+    (safeableFor_iff ..).symm
+
+-- Match the real normed-space instance used when elaborating the challenge.
+-- The derivative-tactic imports also supply an inner-product-space instance.
+attribute [local instance 2000] NormedField.toNormedSpace
+
+def horizontalDot (rx ry rv : ℝ) : ℝ × ℝ × ℝ × ℝ → ℝ :=
+  fun (x, y, s, _n) => x * rx + y * ry + s * rv
+
+def horizontalEnergy : ℝ × ℝ × ℝ × ℝ → ℝ :=
+  fun (x, y, s, n) => x ^ 2 + y ^ 2 - s ^ 2 - n ^ 2
+
+/-- Preserve the projected horizontal velocity relation before the energy identity. -/
+theorem horizontal_dot_preserved (rx ry rv : ℝ) (hvel : rv ^ 2 = rx ^ 2 + ry ^ 2) :
+    (fun st => horizontalDot rx ry rv st = 0)
+    [[evolve (motionHorizontalODE rx ry rv) (fun _ => True)]]
+    (fun st => horizontalDot rx ry rv st = 0) := by
+  apply dIeq (horizontalDot rx ry rv) (fun _ => 0)
+  · ode_deriv [horizontalDot, motionHorizontalODE]
+    linarith
+  · exact fun _ h => h
+  · exact fun _ _ => rfl
+
+/-- The dot relation makes the derivative of the coordinate energy vanish. -/
+theorem horizontal_energy_preserved (rx ry rv : ℝ) (hvel : rv ^ 2 = rx ^ 2 + ry ^ 2) :
+    (fun st => horizontalDot rx ry rv st = 0 ∧ horizontalEnergy st = 0)
+    [[evolve (motionHorizontalODE rx ry rv) (fun _ => True)]]
+    (fun st => horizontalEnergy st = 0) := by
+  apply dC (cut := fun st => horizontalDot rx ry rv st = 0)
+  · exact fun st h => horizontal_dot_preserved rx ry rv hvel st h.1
+  · apply dIeq horizontalEnergy (fun st => 2 * horizontalDot rx ry rv st)
+    · ode_deriv [horizontalEnergy, horizontalDot, motionHorizontalODE]
+      linarith
+    · exact fun _ h => h.2
+    · intro st h
+      simp [h.2]
+
+/-- STTT Proposition 1, Eq. (11); no extra nonzero-speed assumption. -/
+theorem horizontal_reduction :
+    ∀ rp rx ry rv x y s n,
+      HorizontalCoordinates rx ry rv x y s n →
+        ∀ x_res y_res s_res n_res,
+          (x_res, y_res, s_res, n_res) ∈
+            SetM.run (evolve (motionHorizontalODE rx ry rv) (fun _ => True) (x, y, s, n)) →
+            (rp ^ 2 < x_res ^ 2 + y_res ^ 2 ↔ rp ^ 2 - n_res ^ 2 < s_res ^ 2) := by
+  intro rp rx ry rv x y s n hcoord xr yr sr nr hrun
+  have henergy := horizontal_energy_preserved rx ry rv hcoord.2.2.2 (x, y, s, n)
+    (by constructor <;> dsimp [horizontalDot, horizontalEnergy] <;>
+          linarith [hcoord.1, hcoord.2.2.1])
+    (xr, yr, sr, nr) hrun
+  dsimp [horizontalEnergy] at henergy
+  constructor <;> intro h <;> linarith
 
 end ACASX

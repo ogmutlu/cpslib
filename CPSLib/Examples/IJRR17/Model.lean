@@ -456,7 +456,7 @@ def ctrl_o_nobs (O : Set Obstacle) (V : Obstacle → ℝ) (v : Obstacle → Vec2
   let mut v := v
   let n ← choose ℕ
   for _ in [:n] do
-    let i ← chooseS O
+    let i ← chooseFrom O
     let vi ← choose Vec2
     ensure (‖vi‖ ≤ V i)
     v := Function.update v i vi

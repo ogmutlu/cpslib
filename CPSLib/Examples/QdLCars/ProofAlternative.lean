@@ -95,7 +95,7 @@ def prog (active : Finset Car) (f : Car → CarState) : SetM Result
   let n ← choose ℕ
   for _ in [:n]
       invariant _pref _suff => invariant active f do
-    let i ← chooseS {i | i ∉ active}
+    let i ← chooseFrom {i | i ∉ active}
     active := insert i active
     unless (∀ j ∈ active, i ≠ j →
         Ordered f i j ∨ Ordered f j i) do abort
