@@ -5,14 +5,14 @@ open CPSLib
 namespace FM09
 
 /-- Initially separated aircraft remain separated after any NTRM run. -/
-theorem ntrm_safe :
+theorem ntrm_pair_safe :
     ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
       ∀ res ∈ SetM.run (ntrm p x d y e),
         Separated p res.x res.y := sorry
 
 /-- Initially separated aircraft remain separated after any FTRM run. But this
 does not establish safety throughout every moment of the FTRM run. -/
-theorem ftrm_end_safe :
+theorem ftrm_pair_end_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrm p r x d y e),
@@ -20,7 +20,7 @@ theorem ftrm_end_safe :
 
 /-- Throughout safety for the FTRM: after any number of (incl. zero) FTRM
 iterations, running any prefix of another FTRM iteration is safe. -/
-theorem ftrm_throughout_safe :
+theorem ftrm_pair_throughout_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrm p r x d y e),

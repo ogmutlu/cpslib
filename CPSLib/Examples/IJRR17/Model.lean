@@ -34,7 +34,65 @@ namespace IJRR17
 
 noncomputable section
 
+/-- Positions and directions in the two-dimensional plane. -/
 abbrev Vec2 := EuclideanSpace ℝ (Fin 2)
+
+/-!
+## Model 1: Parametric Robot Controller
+
+The controller chooses between braking, remaining stopped, and taking a new circular
+path. It may brake at any time. It may remain stopped only when its speed is zero,
+and it may take a new path only when the supplied safety condition holds.
+
+The model has two parameters that later models will specify: `drive` chooses the
+acceleration, and `safe` checks whether that choice leaves enough room to avoid an
+obstacle. The robot steers by choosing a radius instead of tracking the circle's
+center.
+
+For a new path, the controller also chooses an obstacle point `o` nondeterministically.
+This abstracts the search for an obstacle point against which to check the path.
+(see Section 6.1.1, Model 1)
+-/
+
+/--
+Journal (5): a signed nonzero radius, without a curve-center variable.
+The relation `r * ω = s` links forward speed `s`, angular velocity `ω`, and radius `r`.
+A positive radius gives a counterclockwise turn; a negative radius gives a clockwise turn.
+-/
+@[reducible]
+def Curve (s ω r : ℝ) : Prop := r ≠ 0 ∧ r * ω = s
+
+/--
+Journal Model 1 / archive robot controller. `b` is the braking magnitude, and `Ω`
+bounds the angular velocity chosen for a new path. `drive` supplies acceleration `a`;
+`safe pMeasured o sMeasured a` checks the chosen path against obstacle point `o`.
+
+The actual speed controls the stopped branch and curve consistency. Only the safety
+guard uses sensed speed and position. Returns acceleration, angular velocity, radius,
+and reselected obstacle position. (see Eqs. (1)--(5))
+-/
+def ctrl_r (b Ω : ℝ) (drive : SetM ℝ) (safe : Vec2 → Vec2 → ℝ → ℝ → Prop)
+    (pMeasured o : Vec2) (s sMeasured ω r : ℝ) : SetM (ℝ × ℝ × ℝ × Vec2) :=
+  -- Brake on the current path.
+  (do
+    return (-b, ω, r, o))
+    <|>
+  -- Remain stopped, without turning.
+  (do
+    ensure (s = 0)
+    return (0, 0, r, o))
+    <|>
+  -- Choose acceleration and a new path that pass the supplied safety test.
+  (do
+    let a ← drive
+    let ω ← choose ℝ
+    ensure (-Ω ≤ ω ∧ ω ≤ Ω)
+    let r ← choose ℝ
+    let o ← choose Vec2
+    ensure (Curve s ω r ∧ safe pMeasured o sMeasured a)
+    return (a, ω, r, o))
+
+/-! ## Model 2: Static Safety with Maximum Acceleration -/
 
 /-- Natural-number labels and an arbitrary active set represent finite as well
 as countably infinite obstacle populations. No finite enumeration is assumed. -/
@@ -89,10 +147,6 @@ def Bounds (A b V ε : ℝ) : Prop := 0 ≤ A ∧ 0 < b ∧ 0 ≤ V ∧ 0 < ε
 def Initial (p d o : Vec2) (s : ℝ) : Prop :=
   s = 0 ∧ 0 < distanceSq p o ∧ UnitDirection d
 
-/-- Journal (5): a signed nonzero radius, without a curve-center variable. -/
-@[reducible]
-def Curve (s ω r : ℝ) : Prop := r ≠ 0 ∧ r * ω = s
-
 def stopDist (b s : ℝ) : ℝ := s ^ 2 / (2 * b)
 
 /-- Journal (23), also the archive's stopDist + accelComp. Setting `V = 0`
@@ -127,26 +181,6 @@ def ctrl_o (V : ℝ) : SetM Vec2 := do
   let v ← choose Vec2
   ensure (v 0 ^ 2 + v 1 ^ 2 ≤ V ^ 2)
   return v
-
-/-- Journal Model 1 / archive robot controller. The actual speed controls the
-stopped branch and curve consistency. Only the safety guard uses sensed speed.
-Returns acceleration, angular velocity, radius, and reselected obstacle position. -/
-def ctrl_r (b Ω : ℝ) (drive : SetM ℝ) (safe : Vec2 → Vec2 → ℝ → ℝ → Prop)
-    (pMeasured o : Vec2) (s sMeasured ω r : ℝ) : SetM (ℝ × ℝ × ℝ × Vec2) :=
-  (pure (-b, ω, r, o))
-    <|>
-  (do
-    ensure (s = 0)
-    return (0, 0, r, o))
-    <|>
-  (do
-    let a ← drive
-    let ω ← choose ℝ
-    ensure (-Ω ≤ ω ∧ ω ≤ Ω)
-    let r ← choose ℝ
-    let o ← choose Vec2
-    ensure (Curve s ω r ∧ safe pMeasured o sMeasured a)
-    return (a, ω, r, o))
 
 /-- Shared loop for Models 2--4 and 7--10. Control retains the physical direction.
 `sense` precedes obstacle/robot control; `act` follows it. Returns

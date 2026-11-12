@@ -46,7 +46,7 @@ def free (p : ℝ) (x d y e : Vec2) := do
 
 /-- Each aircraft's current ray meets its original flight ray (Fig. 10, `circ`). -/
 @[reducible]
-def ExitReady (x₀ d₀ y₀ e₀ : Vec2) := fun (x, d, y, e) =>
+def ExitReadyPair (x₀ d₀ y₀ e₀ : Vec2) := fun (x, d, y, e) =>
   ∃ lx mx : ℝ, 0 ≤ lx ∧ 0 < mx ∧ x + lx • d = x₀ + mx • d₀ ∧
   ∃ ly my : ℝ, 0 ≤ ly ∧ 0 < my ∧ y + ly • e = y₀ + my • e₀
 
@@ -57,8 +57,8 @@ def entryEvol (ω : ℝ) := evolve (flight (-ω) (-ω)) (fun _ => True)
 def circEvol (ω : ℝ) (x₀ d₀ y₀ e₀ : Vec2) :=
   evolve
     (flight ω ω)
-    (fun (x, d, y, e) => ¬ExitReady x₀ d₀ y₀ e₀ (x, d, y, e) ∨
-      (x, d, y, e) ∈ frontier {(x, d, y, e) | ExitReady x₀ d₀ y₀ e₀ (x, d, y, e)})
+    (fun (x, d, y, e) => ¬ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e) ∨
+      (x, d, y, e) ∈ frontier {(x, d, y, e) | ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e)})
 
 /-- Straight exit flight (Fig. 10, `exit`). -/
 def exitEvol := evolve (flight 0 0) (fun _ => True)
@@ -85,7 +85,7 @@ def entry_f (ω r : ℝ) (c x d y e : Vec2) := do
 /-- Circular flight followed by the exit-readiness test (Fig. 10, `circ`). -/
 def circ_f (ω : ℝ) (x₀ d₀ y₀ e₀ x d y e : Vec2) := do
   let (x, d, y, e) ← circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   return (x, d, y, e)
 
 /-- Straight exit flight without the final far-separation test from Fig. 10. -/
@@ -99,7 +99,7 @@ structure Result where
   x : Vec2
   y : Vec2
 
-structure FtrmResult extends Result where
+structure FtrmPairResult extends Result where
   d : Vec2
   e : Vec2
   r : ℝ
@@ -122,7 +122,7 @@ def ntrm (p : ℝ) (x d y e : Vec2) : SetM Result := do
   return { x, y }
 
 /-- Two-aircraft FTRM (Fig. 10), without the final far-separation test. -/
-def ftrm (p r : ℝ) (x d y e : Vec2) : SetM FtrmResult := do
+def ftrm (p r : ℝ) (x d y e : Vec2) : SetM FtrmPairResult := do
   let mut (x, d, y, e) := (x, d, y, e)
   let mut r := r
   let m ← choose ℕ
@@ -153,7 +153,7 @@ def ftrmPrefix (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result := do
   let (x, d, y, e) ← circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
   if k = 3 then return { x, y }
   --exit
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← exitEvol (x, d, y, e)
   return { x, y }
 
@@ -218,7 +218,7 @@ def modifiedEntryPrefix (entry : EntryProcedure) (bound : EntryTimeBound)
 
 /-- Theorem 1: the original FTRM cycle with only its entry procedure replaced. -/
 def ftrmModified (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x d y e : Vec2) : SetM FtrmResult := do
+    (p r : ℝ) (x d y e : Vec2) : SetM FtrmPairResult := do
   let mut (x, d, y, e) := (x, d, y, e)
   let mut r := r
   let m ← choose ℕ
@@ -247,7 +247,7 @@ def ftrmModifiedPrefix (entry : EntryProcedure) (bound : EntryTimeBound)
   let (x, d, y, e) ← modifiedEntryComplete entry bound r ω c x d y e
   let (x, d, y, e) ← circEvol ω x₀ d₀ y₀ e₀ (x, d, y, e)
   if k = 3 then return { x, y }
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← exitEvol (x, d, y, e)
   return { x, y }
 

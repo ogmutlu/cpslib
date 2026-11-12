@@ -1,11 +1,7 @@
 import CPSLib.Core.ODE
 
-open CPSLib
-
-namespace ACASX
-
 /-!
-# ACASX Case Study (STTT17), with Implicit Formulations of Safe Regions
+# ACASX Case Study (STTT17), Implicit Formulations of Safe Regions
 
 ACAS X is an airborne collision avoidance system that gives pilots vertical guidance.
 We consider two aircraft: the ownship, equipped with ACAS X, and an intruder that may
@@ -22,6 +18,10 @@ advisories whose safety depends on a suitable follow-up.
 
 Let us start with some definitions that will be useful for all models.
 -/
+
+open CPSLib
+
+namespace ACASX
 
 /--
 Displacement after time `t`, starting at velocity `v` with constant acceleration `a`.

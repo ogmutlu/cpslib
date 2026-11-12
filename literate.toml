@@ -1,5 +1,7 @@
 hide_commands = ["import", "open", "set_option"]
 docstrings_as_text = true
+extra_css = ["docs/literate-labels.css"]
+extra_js = ["docs/literate-labels.js"]
 
 [metadata]
 title = "CPSLib Case Studies"

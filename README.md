@@ -4,13 +4,13 @@ CPSLib is a shallow embedding of [differential dynamic logic (dL)](https://doi.o
 
 ## Hybrid programs
 
-A hybrid program combines discrete control with continuous physical evolution. 
+A hybrid program combines discrete control with continuous physical evolution.
 
-As an example from the [LFCPS book](https://doi.org/10.1007/978-3-319-63588-0), consider a bouncing ball with height `x` and vertical velocity `v`. Let `g > 0` denote gravitational constant, `c` is damping factor applied at each bounce, and `r ≥ 0` models air resistance. 
+As an example from the [LFCPS book](https://doi.org/10.1007/978-3-319-63588-0), consider a bouncing ball with height `x` and vertical velocity `v`. Let `g > 0` denote gravitational constant, `c` is damping factor applied at each bounce, and `r ≥ 0` models air resistance.
 
 The hybrid program is as follows: If the ball is on the ground `(x = 0)`, the controller reverses and scales its velocity by assigning `v := -c * v`. Between bounces, the ball follows one of two ODEs: `up` describes upward motion `(v ≥ 0)`, while `down` describes downward motion `(v ≤ 0)`.
 
-First, we define the upward ODE `{ x' = v, v' = -g - r*v^2 }` 
+First, we define the upward ODE `{ x' = v, v' = -g - r*v^2 }`
 with its domain constraint `(x >= 0 & v >= 0)`, and likewise the downward ODE
 `{ x' = v, v' = -g + r*v^2 }` with the domain `(x >= 0 & v <= 0)`.
 
@@ -69,7 +69,7 @@ It corresponds to the following dL formula:
 
 Quantifying over every member of the resulting set corresponds to the box modality: the postcondition must hold after every possible execution.
 
-The examples use Lean's intrinsic verification syntax: `requires` states the precondition, `ensures` states the postcondition, and an inline `invariant` annotates each loop. The definition produces a checked `prog.spec` theorem automatically using `vcgen`; remaining obligations are proved in `where finally | spec => ...`. 
+The examples use Lean's intrinsic verification syntax: `requires` states the precondition, `ensures` states the postcondition, and an inline `invariant` annotates each loop. The definition produces a checked `prog.spec` theorem automatically using `vcgen`; remaining obligations are proved in `where finally | spec => ...`.
 
 The automatic differentiation tactics discharge the analytic side of these rules and the remaining arithmetic is proved using Lean and Mathlib.
 
@@ -87,10 +87,7 @@ lake build
 
 ## Local literate documentation
 
-The local Verso prototype renders the FM09, FM11, and ACASX Model and Challenge files
-directly from their Lean source. Module comments and declaration docstrings appear
-as prose alongside the code; `literate.toml` controls the pages and their order.
-Verso is pinned to a revision matching the project's Lean 4.35 toolchain.
+The local Verso prototype renders files directly from their Lean source. `literate.toml` controls the pages and their order.
 
 Build the site from the repository root:
 
@@ -105,17 +102,6 @@ Serve it locally and open <http://localhost:8000>:
 python3 -m http.server 8000 --directory .lake/build/literate-html
 ```
 
-Use the landing page or sidebar to navigate. In this pinned Verso revision,
-breadcrumb links to intermediate namespaces (such as `CPSLib.Examples.FM09`) do
-not have generated index pages when only their child modules are selected.
-
-The site uses a light palette regardless of browser preference, configured through
-Verso's native `[theme]` and `[theme.dark]` settings in `literate.toml`.
-
-This prototype does not change the existing GitHub Pages deployment. See the
-[Verso literate-programming guide](https://verso.lean-lang.org/doc/latest/Literate-Programming/)
-for configuration details.
-
 ## Check example proofs
 
 You can check the example proofs directly with Lean Comparator, included in the
@@ -124,4 +110,3 @@ project's Lean 4.35 toolchain. From the repository root, pass an example's confi
 ```sh
 lake comparator --config=CPSLib/Examples/ACASX/config.json
 ```
-

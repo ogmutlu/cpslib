@@ -83,26 +83,26 @@ theorem equalSpeedsMany_pair (d e : Vec2) :
 
 theorem ntrm_many_two_safe (p : ℝ) (x d y e : Vec2)
     (h : Separated p x y) :
-    ∀ res ∈ SetM.run (ntrm_many p ![x, y] ![d, e]), Separated p (res 0) (res 1) := by
+    ∀ res ∈ SetM.run (ntrmProg p ![x, y] ![d, e]), Separated p (res 0) (res 1) := by
   intro res hrun
-  exact ntrm_many_safe 2 p ![x, y] ![d, e] ((separatedMany_pair p x y).2 h)
+  exact ntrm_safe 2 p ![x, y] ![d, e] ((separatedMany_pair p x y).2 h)
     res hrun 0 1 (by decide)
 
 theorem ftrm_many_two_end_safe (p r : ℝ) (x d y e : Vec2)
     (h : 0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y) :
-    ∀ res ∈ SetM.run (ftrm_many p r ![x, y] ![d, e]), Separated p (res.x 0) (res.x 1) := by
+    ∀ res ∈ SetM.run (ftrmProg p r ![x, y] ![d, e]), Separated p (res.x 0) (res.x 1) := by
   intro res hrun
-  exact ftrm_many_end_safe 2 p r ![x, y] ![d, e]
+  exact ftrm_end_safe 2 p r ![x, y] ![d, e]
     ⟨h.1, (equalSpeedsMany_pair d e).2 h.2.1, h.2.2.1,
       (separatedMany_pair (far p r) x y).2 h.2.2.2⟩ res hrun 0 1 (by decide)
 
 theorem ftrm_many_two_throughout_safe (p r : ℝ) (x d y e : Vec2)
     (h : 0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y) :
-    ∀ st ∈ SetM.run (ftrm_many p r ![x, y] ![d, e]), ∀ k : Fin 5,
-      ∀ res ∈ SetM.run (ftrmPrefix_many p st.r k st.x st.d),
+    ∀ st ∈ SetM.run (ftrmProg p r ![x, y] ![d, e]), ∀ k : Fin 5,
+      ∀ res ∈ SetM.run (ftrmPrefixProg p st.r k st.x st.d),
         Separated p (res 0) (res 1) := by
   intro st hrun k res hprefix
-  exact ftrm_many_throughout_safe 2 p r ![x, y] ![d, e]
+  exact ftrm_throughout_safe 2 p r ![x, y] ![d, e]
     ⟨h.1, (equalSpeedsMany_pair d e).2 h.2.1, h.2.2.1,
       (separatedMany_pair (far p r) x y).2 h.2.2.2⟩ st hrun k res hprefix 0 1 (by decide)
 
@@ -304,7 +304,7 @@ def circ_f' (p ω : ℝ) (c x₀ d₀ y₀ e₀ x d y e : Vec2) : SetM (Vec2 × 
       ‖dr‖ = ‖d‖ ∧ ‖er‖ = ‖e‖
     := do
   let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   return (x, d, y, e)
 
 def exit_f' (p ω : ℝ) (c x d y e : Vec2) : SetM (Vec2 × Vec2 × Vec2 × Vec2)
@@ -390,7 +390,7 @@ def ntrm' (p : ℝ) (x d y e : Vec2) : SetM Result
 where finally
   | spec => all_goals simp_all [entry_n]
 
-theorem ntrm_safe :
+theorem ntrm_pair_safe :
     ∀ (p : ℝ) (x d y e : Vec2), Separated p x y →
       ∀ res ∈ SetM.run (ntrm p x d y e),
         Separated p res.x res.y := by
@@ -399,7 +399,7 @@ theorem ntrm_safe :
 
 /-- The full-state FTRM preserves separation and equal speeds, carrying the
 latest negotiated radius into the next iteration and the returned state. -/
-def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
+def ftrm' (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmPairResult
     requires 0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
     ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
     := do
@@ -436,7 +436,7 @@ def ftrmPrefix' (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
   unless ‖x - c‖ ^ 2 = r ^ 2 do abort
   let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
   if k = 3 then return { x, y }
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← safeExit p ω c x d y e
   return { x, y }
 
@@ -445,7 +445,7 @@ def ftrmPrefix' (p r : ℝ) (k : Fin 5) (x d y e : Vec2) : SetM Result
     ⦃fun res => Separated p res.x res.y⦄ := by
   exact ftrmPrefix'.spec p r k x d y e
 
-theorem ftrm_end_safe :
+theorem ftrm_pair_end_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ res ∈ SetM.run (ftrm p r x d y e),
@@ -455,7 +455,7 @@ theorem ftrm_end_safe :
     ⟨hp, hr.le, hde, separated_of_far p r x y hp hr.le hsep⟩ res hrun
   exact hpost.2.2
 
-theorem ftrm_throughout_safe :
+theorem ftrm_pair_throughout_safe :
     ∀ (p r : ℝ) (x d y e : Vec2),
       0 ≤ p ∧ ‖d‖ = ‖e‖ ∧ 0 < r ∧ Separated (far p r) x y →
         ∀ st ∈ SetM.run (ftrm p r x d y e),
@@ -537,7 +537,7 @@ def modifiedEntryPrefixSafe (entry : EntryProcedure) (bound : EntryTimeBound)
   return st
 
 def ftrmModified' (entry : EntryProcedure) (bound : EntryTimeBound)
-    (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmResult
+    (p r : ℝ) (x₀ d₀ y₀ e₀ : Vec2) : SetM FtrmPairResult
     requires ModifiedEntryContract entry bound p ∧
       0 ≤ p ∧ 0 ≤ r ∧ ‖d₀‖ = ‖e₀‖ ∧ Separated p x₀ y₀
     ensures res => 0 ≤ res.r ∧ ‖res.d‖ = ‖res.e‖ ∧ Separated p res.x res.y
@@ -586,7 +586,7 @@ def ftrmModifiedPrefix' (entry : EntryProcedure) (bound : EntryTimeBound)
   let (x, d, y, e) ← modifiedEntryCompleteSafe entry bound p r ω c x d y e
   let (x, d, y, e) ← safeCirc p ω c x₀ d₀ y₀ e₀ x d y e
   if k = 3 then return { x, y }
-  ensure (ExitReady x₀ d₀ y₀ e₀ (x, d, y, e))
+  ensure (ExitReadyPair x₀ d₀ y₀ e₀ (x, d, y, e))
   let (x, _, y, _) ← safeExit p ω c x d y e
   return { x, y }
 

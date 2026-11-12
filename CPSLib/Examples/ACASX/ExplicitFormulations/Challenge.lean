@@ -36,7 +36,8 @@ theorem bounded_regions_equivalent :
         (advisory.SafeForWithinExplicit encounter rp hp rv alo aup limit ↔
           advisory.SafeForWithin encounter rp hp rv alo aup limit 0) := sorry
 
-/-- A safe strengthening or reversal implies the corresponding endpoint bound. (see Lemma 5) -/
+/-- A safe strengthening or reversal implies the corresponding endpoint bound.
+(see Lemma 5) -/
 theorem endpoint_cases_redundant :
     ∀ (rp hp rv alo aup : ℝ) (duration : Duration) (encounter : Encounter)
       (advisory : TwoSidedAdvisory) (vloEx vupEx : ℝ),

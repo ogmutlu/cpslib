@@ -164,10 +164,10 @@ theorem pairwise_AC1_circ :
 theorem flight_many_pair {n : ℕ} (ω : Fin n → ℝ) (domain : (Fin n → Vec2) × (Fin n → Vec2) → Prop)
     (x d : Fin n → Vec2) (i j : Fin n)
     (res : (Fin n → Vec2) × (Fin n → Vec2))
-    (hrun : res ∈ SetM.run (evolve (flight_many ω) domain (x, d))) :
+    (hrun : res ∈ SetM.run (evolve (flightQODE ω) domain (x, d))) :
     (res.1 i, res.2 i, res.1 j, res.2 j) ∈
       SetM.run (evolve (flight (ω i) (ω j)) (fun _ => True) (x i, d i, x j, d j)) := by
-  apply (evolveSemantic_spec (Evolvable.denotation (flight_many ω)) domain (x, d)).le_wp
+  apply (evolveSemantic_spec (Evolvable.denotation (flightQODE ω)) domain (x, d)).le_wp
     ?_ res hrun
   intro duration hduration trajectory hevolution
   apply SemanticODE.mem_evolveSemantic _ _ _ duration
@@ -188,7 +188,7 @@ theorem flight_many_pair {n : ℕ} (ω : Fin n → ℝ) (domain : (Fin n → Vec
 theorem circ_many_safe {n : ℕ} (p ω : ℝ) (c : Vec2)
     (domain : (Fin n → Vec2) × (Fin n → Vec2) → Prop) (x d : Fin n → Vec2) :
     RMany ω c x d ∧ SeparatedMany p x →
-      ∀ res ∈ SetM.run (evolve (flight_many (fun _ => ω)) domain (x, d)),
+      ∀ res ∈ SetM.run (evolve (flightQODE (fun _ => ω)) domain (x, d)),
         SeparatedMany p res.1 := by
   intro hpre res hrun i j hij
   exact (pairwise_AC1_circ p ω c (fun _ => True) (x i) (d i) (x j) (d j)
@@ -198,11 +198,11 @@ theorem circ_many_safe {n : ℕ} (p ω : ℝ) (c : Vec2)
 
 /-- A single free-flight segment, with the same domain as the model. -/
 def freeStep_many {n : ℕ} (p : ℝ) (ω : Fin n → ℝ) (x d : Fin n → Vec2) :=
-  evolve (flight_many ω) (fun (x, _) => SeparatedMany p x) (x, d)
+  evolve (flightQODE ω) (fun (x, _) => SeparatedMany p x) (x, d)
 
 @[spec] theorem freeStep_many_spec {n : ℕ} (p : ℝ) (ω : Fin n → ℝ) (x d : Fin n → Vec2) :
     ⦃SeparatedMany p x⦄ freeStep_many p ω x d ⦃fun (xr, _) => SeparatedMany p xr⦄ := by
-  exact ⟨fun hpre => dW (ode := flight_many ω)
+  exact ⟨fun hpre => dW (ode := flightQODE ω)
     (pre := fun (x, _) => SeparatedMany p x) (fun _ hdomain => hdomain) (x, d) hpre⟩
 
 /-- The free-flight loop with its mutual-separation invariant. -/
@@ -218,12 +218,13 @@ def free_many' {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : SetM ((Fin n → Vec
     (x, d) ← freeStep_many p ω x d
   return (x, d)
 
-theorem free_many_eq {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : free_many p x d = free_many' p x d := by
+theorem free_many_eq {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) :
+    freeFlight p x d = free_many' p x d := by
   rfl
 
 /-- The unrestricted circular phase, with parameters used by its contract. -/
 def circStep_many {n : ℕ} (_p ω : ℝ) (_c : Vec2) (x d : Fin n → Vec2) :=
-  evolve (flight_many (fun _ => ω)) (fun _ => True) (x, d)
+  evolve (flightQODE (fun _ => ω)) (fun _ => True) (x, d)
 
 @[spec] theorem circStep_many_spec {n : ℕ} (p ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) :
     ⦃RMany ω c x d ∧ SeparatedMany p x⦄ circStep_many p ω c x d
@@ -241,19 +242,19 @@ def ntrm_many' {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : SetM (Fin n → Vec2
       invariant _pref _suff => SeparatedMany p x do
     (x, d) ← free_many' p x d
     let (ω, c) ← agree
-    d := entry_n_many ω c x
+    d := entryNtrm ω c x
     (x, d) ← circStep_many p ω c x d
   return x
 where finally
-  | spec => all_goals simp_all [entry_n_many]
+  | spec => all_goals simp_all [entryNtrm]
 
-theorem ntrm_many_eq {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : ntrm_many p x d = ntrm_many' p x d := by
+theorem ntrm_many_eq {n : ℕ} (p : ℝ) (x d : Fin n → Vec2) : ntrmProg p x d = ntrm_many' p x d := by
   rfl
 
 /-- For any fleet size, initially mutually separated aircraft remain separated after NTRM. -/
-theorem ntrm_many_safe :
+theorem ntrm_safe :
     ∀ (n : ℕ) (p : ℝ) (x d : Fin n → Vec2), SeparatedMany p x →
-      ∀ res ∈ SetM.run (ntrm_many p x d), SeparatedMany p res := by
+      ∀ res ∈ SetM.run (ntrmProg p x d), SeparatedMany p res := by
   intro n p x d hpre res hrun
   exact (ntrm_many'.spec p x d).le_wp hpre res hrun
 
@@ -958,7 +959,7 @@ section
 theorem flight_many_speeds {n : ℕ} (ω : Fin n → ℝ)
     (domain : (Fin n → Vec2) × (Fin n → Vec2) → Prop) (x d : Fin n → Vec2)
     (res : (Fin n → Vec2) × (Fin n → Vec2))
-    (hrun : res ∈ SetM.run (evolve (flight_many ω) domain (x, d))) :
+    (hrun : res ∈ SetM.run (evolve (flightQODE ω) domain (x, d))) :
     ∀ i, ‖res.2 i‖ = ‖d i‖ := by
   intro i
   exact (pairwise_AC2 (ω i) (ω i) (fun _ => True) (x i) (d i) (x i) (d i)
@@ -966,7 +967,7 @@ theorem flight_many_speeds {n : ℕ} (ω : Fin n → ℝ)
     (flight_many_pair ω domain x d i i res hrun)).1
 
 def entrySafeStep_many {n : ℕ} (_p _r ω : ℝ) (_c : Vec2) (x d : Fin n → Vec2) :=
-  entryEvol_many ω x d
+  evolve (flightQODE (fun _ => -ω)) (fun _ => True) (x, d)
 
 @[spec] theorem entryEvol_many_spec {n : ℕ} (p r ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) :
     ⦃0 ≤ p ∧ 0 ≤ r ∧ ConditionC r c x d ∧ (∀ i, (r * ω) ^ 2 = ‖d i‖ ^ 2) ∧
@@ -1002,7 +1003,7 @@ def freeSafeStep_many {n : ℕ} (p r : ℝ) (ω : Fin n → ℝ) (x d : Fin n �
   constructor
   rintro ⟨hp, hr, _⟩
   apply SetM.wp_and
-  · exact dW (ode := flight_many ω) (pre := fun _ => True)
+  · exact dW (ode := flightQODE ω) (pre := fun _ => True)
       (fun (xr, _) hdom i j hij => separated_of_far p r (xr i) (xr j) hp hr (hdom i j hij))
       (x, d) trivial
   · intro res hrun
@@ -1048,7 +1049,9 @@ def entry_f_many' {n : ℕ} (p r ω : ℝ) (c : Vec2) (x d : Fin n → Vec2) :
   return (x, d)
 
 def circSafeStep_many {n : ℕ} (_p ω : ℝ) (_c : Vec2) (x₀ d₀ x d : Fin n → Vec2) :=
-  circEvol_many ω x₀ d₀ x d
+  evolve (flightQODE (fun _ => ω))
+    (fun (x, d) => ¬ExitReady x₀ d₀ x d ∨
+      (x, d) ∈ frontier {(x, d) | ExitReady x₀ d₀ x d}) (x, d)
 
 @[spec] theorem circEvol_many_spec {n : ℕ} (p ω : ℝ) (c : Vec2)
     (x₀ d₀ x d : Fin n → Vec2) :
@@ -1057,9 +1060,9 @@ def circSafeStep_many {n : ℕ} (_p ω : ℝ) (_c : Vec2) (x₀ d₀ x d : Fin n
   constructor
   rintro ⟨hR, hsep⟩ ⟨xr, dr⟩ hrun
   let D : (Fin n → Vec2) × (Fin n → Vec2) → Prop := fun (x, d) =>
-    ¬ExitReadyMany x₀ d₀ x d ∨
-      (x, d) ∈ frontier {st | ExitReadyMany x₀ d₀ st.1 st.2}
-  have hevo : (xr, dr) ∈ SetM.run (evolve (flight_many (fun _ => ω)) D (x, d)) := hrun
+    ¬ExitReady x₀ d₀ x d ∨
+      (x, d) ∈ frontier {st | ExitReady x₀ d₀ st.1 st.2}
+  have hevo : (xr, dr) ∈ SetM.run (evolve (flightQODE (fun _ => ω)) D (x, d)) := hrun
   refine ⟨?_, circ_many_safe p ω c D x d ⟨hR, hsep⟩ (xr, dr) hevo,
     flight_many_speeds (fun _ : Fin n => ω) D x d (xr, dr) hevo⟩
   intro i
@@ -1068,7 +1071,7 @@ def circSafeStep_many {n : ℕ} (_p ω : ℝ) (_c : Vec2) (x₀ d₀ x d : Fin n
     (flight_many_pair (fun _ => ω) D x d i i (xr, dr) hevo)).1
 
 def exitSafeStep_many {n : ℕ} (_p _ω : ℝ) (_c : Vec2) (x d : Fin n → Vec2) :=
-  exitEvol_many x d
+  evolve (flightQODE (fun _ => 0)) (fun _ => True) (x, d)
 
 @[spec] theorem exitEvol_many_spec {n : ℕ} (p ω : ℝ) (c : Vec2)
     (x d : Fin n → Vec2) :
@@ -1088,10 +1091,10 @@ def circ_f_many' {n : ℕ} (p ω : ℝ) (c : Vec2) (x₀ d₀ x d : Fin n → Ve
     ensures (xr, dr) => RMany ω c xr dr ∧ SeparatedMany p xr ∧ ∀ i, ‖dr i‖ = ‖d i‖
     := do
   let (x, d) ← circSafeStep_many p ω c x₀ d₀ x d
-  ensure (ExitReadyMany x₀ d₀ x d)
+  ensure (ExitReady x₀ d₀ x d)
   return (x, d)
 
-def ftrm_many' {n : ℕ} (p r : ℝ) (x₀ d₀ : Fin n → Vec2) : SetM (FtrmManyResult n)
+def ftrm_many' {n : ℕ} (p r : ℝ) (x₀ d₀ : Fin n → Vec2) : SetM (FtrmResult n)
     requires 0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d₀ ∧ SeparatedMany p x₀
     ensures res => 0 ≤ res.r ∧ EqualSpeeds res.d ∧ SeparatedMany p res.x
     := do
@@ -1112,10 +1115,10 @@ where finally
   | spec => all_goals simp_all [EqualSpeeds]; all_goals grind
 
 theorem ftrm_many_eq {n : ℕ} (p r : ℝ) (x d : Fin n → Vec2) :
-    ftrm_many p r x d = ftrm_many' p r x d := rfl
+    ftrmProg p r x d = ftrm_many' p r x d := rfl
 
 @[spec] theorem ftrm_many_spec {n : ℕ} (p r : ℝ) (x d : Fin n → Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrm_many p r x d
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrmProg p r x d
     ⦃fun res => 0 ≤ res.r ∧ EqualSpeeds res.d ∧ SeparatedMany p res.x⦄ :=
   ftrm_many'.spec p r x d
 
@@ -1134,34 +1137,34 @@ def ftrmPrefix_many' {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
   unless ∀ i, ‖x i - c‖ ^ 2 = r ^ 2 do abort
   let (x, d) ← circSafeStep_many p ω c x₀ d₀ x d
   if k = 3 then return x
-  ensure (ExitReadyMany x₀ d₀ x d)
+  ensure (ExitReady x₀ d₀ x d)
   let (x, _) ← exitSafeStep_many p ω c x d
   return x
 where finally
   | spec => all_goals simp_all [EqualSpeeds]; all_goals grind
 
 theorem ftrmPrefix_many_eq {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
-    ftrmPrefix_many p r k x d = ftrmPrefix_many' p r k x d := rfl
+    ftrmPrefixProg p r k x d = ftrmPrefix_many' p r k x d := rfl
 
 @[spec] theorem ftrmPrefix_many_spec {n : ℕ} (p r : ℝ) (k : Fin 5) (x d : Fin n → Vec2) :
-    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrmPrefix_many p r k x d
+    ⦃0 ≤ p ∧ 0 ≤ r ∧ EqualSpeeds d ∧ SeparatedMany p x⦄ ftrmPrefixProg p r k x d
     ⦃fun xr => SeparatedMany p xr⦄ := ftrmPrefix_many'.spec p r k x d
 
-theorem ftrm_many_end_safe :
+theorem ftrm_end_safe :
     ∀ (n : ℕ) (p r : ℝ) (x d : Fin n → Vec2),
       0 ≤ p ∧ EqualSpeeds d ∧ 0 < r ∧ SeparatedMany (far p r) x →
-        ∀ res ∈ SetM.run (ftrm_many p r x d), SeparatedMany p res.x := by
+        ∀ res ∈ SetM.run (ftrmProg p r x d), SeparatedMany p res.x := by
   intro n p r x d ⟨hp, hspeed, hr, hfar⟩ res hrun
   have hsep : SeparatedMany p x := by
     intro i j hij
     exact separated_of_far p r (x i) (x j) hp hr.le (hfar i j hij)
   exact ((ftrm_many_spec p r x d).le_wp ⟨hp, hr.le, hspeed, hsep⟩ res hrun).2.2
 
-theorem ftrm_many_throughout_safe :
+theorem ftrm_throughout_safe :
     ∀ (n : ℕ) (p r : ℝ) (x d : Fin n → Vec2),
       0 ≤ p ∧ EqualSpeeds d ∧ 0 < r ∧ SeparatedMany (far p r) x →
-        ∀ st ∈ SetM.run (ftrm_many p r x d), ∀ k : Fin 5,
-          ∀ res ∈ SetM.run (ftrmPrefix_many p st.r k st.x st.d), SeparatedMany p res := by
+        ∀ st ∈ SetM.run (ftrmProg p r x d), ∀ k : Fin 5,
+          ∀ res ∈ SetM.run (ftrmPrefixProg p st.r k st.x st.d), SeparatedMany p res := by
   intro n p r x d ⟨hp, hspeed, hr, hfar⟩ st hrun k res hprefix
   have hsep : SeparatedMany p x := by
     intro i j hij

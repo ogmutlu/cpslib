@@ -2,9 +2,9 @@
     "challenge_module": "CPSLib.Examples.FM09.Challenge",
     "solution_module": "CPSLib.Examples.FM09.Proof",
     "theorem_names": [
-        "FM09.ntrm_many_safe",
-        "FM09.ftrm_many_end_safe",
-        "FM09.ftrm_many_throughout_safe"
+        "FM09.ntrm_safe",
+        "FM09.ftrm_end_safe",
+        "FM09.ftrm_throughout_safe"
     ],
     "permitted_axioms": [
         "propext",

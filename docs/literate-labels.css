@@ -1,0 +1,25 @@
+/* Verso gives module prose an ID; declaration docstrings rendered as prose have none.
+   Keep the label outside code panels and off module introductions and section text. */
+.code-content > :is(.md-text, .verso-text).mod-doc:not([id])::before,
+.code-content > :is(.md-text, .verso-text).mod-doc > .definition-label {
+    content: "Definition";
+    display: block;
+    margin: 0 0 0.75rem;
+    color: var(--verso-structure-color);
+    font-family: var(--verso-text-font-family);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.code-content > :is(.md-text, .verso-text).mod-doc[data-definition-name]::before {
+    content: none;
+}
+
+.code-content > :is(.md-text, .verso-text).mod-doc > .definition-label > code {
+    font-family: var(--verso-code-font-family);
+    font-size: 1em;
+    background: none;
+    padding: 0;
+    font-weight: 300;
+}
