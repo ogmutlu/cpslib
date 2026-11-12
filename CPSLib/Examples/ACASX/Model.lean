@@ -103,12 +103,12 @@ Guarantees that `hn` is a *lower* bound on the vertical displacement of the owns
 advisory's direction.
 
 More precisely, assuming `v` initially does not exceed the target in advisory's direction,
-this holds when `hn` is the ownship's signed vertical displacement after time `t` along
-the reference trajectory: start with vertical velocity `v`, accelerate in the advisory's
-direction with magnitude `alo` until reaching the advisory's target velocity, then keep
-that velocity. If `v` already meets or exceeds the target velocity `vlo` in advisory’s
-direction, ownship uses `vlo` throughout. So, `hn` is a strict lower bound in that case.
-(see Fig. 3, `A`)
+this predicate holds when `hn` is the ownship's signed vertical displacement after time
+`t` along the reference trajectory: start with vertical velocity `v`, accelerate in the
+advisory's direction with magnitude `alo` until reaching the advisory's target velocity,
+then keep that velocity. If `v` already meets or exceeds the target velocity `vlo` in
+advisory’s direction, ownship uses `vlo` throughout. So, `hn` is a strict lower bound
+in that case. (see Fig. 3, `A`)
 -/
 @[reducible]
 def Advisory.DisplacementLo (advisory : Advisory) (alo v t : ℝ) (hn : ℝ) : Prop :=
@@ -121,8 +121,9 @@ def Advisory.DisplacementLo (advisory : Advisory) (alo v t : ℝ) (hn : ℝ) : P
   (timeToTarget ≤ t ∧ hn = (vlo * t) - w * (advisory.shortfallOf v) ^ 2 / (2 * alo))
 
 /--
-Holds when the intruder is in the lower safe region of the advisory. Advisory is safe to
-follow for unlimited time. (see Fig. 3, `L⁻¹_impl`)
+Holds when the encounter lies in the lower safe region of the advisory. That means, the
+advisory is safe to follow for unlimited time, assuming a lower bound on the displacement
+of ownship in advisory's direction. (see Fig. 3, `L⁻¹_impl`)
 -/
 @[reducible]
 def Advisory.LoSafeFor
@@ -138,22 +139,21 @@ def motionODE (rv a : ℝ) : (ℝ × ℝ × ℝ) → (ℝ × ℝ × ℝ)
   | (_r, _h, v) => (-rv, -v, a)
 
 /--
-Holds when the current vertical velocity `v` meets or exceeds the advisory's target
-in its direction, or the chosen vertical acceleration `a` is at least `alo` in that
-direction. Thus, while the target velocity has not been reached, the pilot must
-accelerate toward it with magnitude at least `alo`. (see Eq. (1))
+The pilot must accelerate in the advisory's direction at a rate of at least `alo`
+until the target velocity is reached. At or beyond the target, this condition
+places no restriction on acceleration. (see Eq. (1))
 -/
 @[reducible]
-def Advisory.AllowsLo (advisory : Advisory) (v a alo : ℝ) : Prop :=
+def Advisory.IsSatisfiedLo (advisory : Advisory) (v a alo : ℝ) : Prop :=
   let w := advisory.direction.sign
   (w * advisory.targetv ≤ w * v) ∨ (alo ≤ w * a)
 
 /--
 The evolution requires this condition throughout the flight segment, so the pilot
-must immediately responsd and comply with the advisory. (see Eq. (1))
+must immediately respond and comply with the advisory. (see Eq. (1))
 -/
 def domainLo (alo a : ℝ) (advisory : Advisory) : ℝ × ℝ × ℝ → Prop
-  | (_r, _h, v) => advisory.AllowsLo v a alo
+  | (_r, _h, v) => advisory.IsSatisfiedLo v a alo
 
 /--
 The result of an immediate-response run.
@@ -234,12 +234,12 @@ def withDelayODE (rv a : ℝ) : (ℝ × ℝ × ℝ × ℝ × ℝ) → (ℝ × �
 
 /--
 The evolution requires this condition throughout the flight segment. The segment
-clock must stay at most `ε`. Once `d ≤ 0`, the pilot must comply with `AllowsLo`;
+clock must stay at most `ε`. Once `d ≤ 0`, the pilot must comply with advisory;
 before then, compliance is not required. (see Eq. (4))
 -/
 def domainDelayed (alo ε a : ℝ) (advisory : Advisory) :
     ℝ × ℝ × ℝ × ℝ × ℝ → Prop
-  | (_r, _h, v, d, t) => t ≤ ε ∧ (d ≤ 0 → advisory.AllowsLo v a alo)
+  | (_r, _h, v, d, t) => t ≤ ε ∧ (d ≤ 0 → advisory.IsSatisfiedLo v a alo)
 
 structure DelayedResult extends Result where
   d : ℝ
@@ -294,8 +294,8 @@ This allows more advisories to be accepted, while placing extra limits on the
 pilot's response. For example, an upward advisory with an intruder above may be
 safe if the upper velocity and acceleration bounds keep the ownship sufficiently
 below the intruder while horizontally close. Model 1 may reject that advisory
-because it permits climbing too fast toward the intruder. The minimum response
-bound `alo` is retained; the upper response condition also uses `aup`.
+because there we only consider a lower bound on displacement. The minimum response
+accelaration bound `alo` is retained; the upper response condition also uses `aup`.
 
 This prepares for later models with follow-up advisories. Here, each advisory
 must still be safe if followed forever. (see Section 5.1)
@@ -334,8 +334,10 @@ def Advisory.DisplacementUp (advisory : Advisory) (aup v t hn : ℝ) : Prop :=
     hn = w * (max (w * vup) (w * v)) * t - w * advisory.shortfallOf v ^ 2 / (2 * aup))
 
 /--
-Counterpart of `LoSafeFor`, requiring the intruder to be in the *upper* safe region
-of the advisory. (see Fig. 8, `U⁻¹_impl`)
+Counterpart of `LoSafeFor`: the encounter lies in the upper safe region
+of the advisory. That means, the advisory is safe to follow for unlimited time, assuming
+an upper bound on the displacement of ownship in advisory's direction.
+(see Fig. 8, `U⁻¹_impl`)
 -/
 @[reducible]
 def Advisory.UpSafeFor
@@ -344,35 +346,35 @@ def Advisory.UpSafeFor
     AircraftSeparatedUp advisory encounter rp hp rv t hn
 
 /--
-Holds when the advisory is safe to follow for an unlimited time, provided the pilot
-obeys both response conditions: acceleration in the advisory's direction is bounded
-by `alo` and `aup` as required by the current velocity and target velocities.
+Holds when the encounter lies in the lower safe region of the lower advisory or
+the upper safe region of the upper advisory. Either condition guarantees safety
+for an unlimited time under the corresponding response condition.
 (see Fig. 8, `C⁻¹_impl`)
 -/
 @[reducible]
 def TwoSidedAdvisory.SafeFor
     (advisory : TwoSidedAdvisory) (encounter : Encounter) (rp hp rv alo aup : ℝ) : Prop :=
-  advisory.lowerAdvisory.LoSafeFor encounter rp hp rv alo ∨
+  advisory.lowerAdvisory.LoSafeFor encounter rp hp rv alo  ∨
     advisory.upperAdvisory.UpSafeFor encounter rp hp rv aup
 
 /--
-Holds when the current vertical velocity `v` is at or below the advisory's target
-in its direction and acceleration `a` in that direction is at most `aup`, or
-acceleration is zero or opposite to that direction. (see Eq. (5))
+The pilot may accelerate in the advisory's direction at a rate of at most `aup`
+while the target velocity has not been exceeded. Beyond the target, the pilot
+must stop accelerating in that direction. (see Eq. (5))
 -/
 @[reducible]
-def Advisory.AllowsUp (advisory : Advisory) (v a aup : ℝ) : Prop :=
+def Advisory.IsSatisfiedUp (advisory : Advisory) (v a aup : ℝ) : Prop :=
   let w := advisory.direction.sign
   (w * v ≤ w * advisory.targetv ∧ w * a ≤ aup) ∨ w * a ≤ 0
 
 /--
-The evolution requires both `AllowsLo` and `AllowsUp` throughout the flight segment.
-The lower view prevents responding too slowly, while the upper view limits motion
+The evolution requires both response conditions throughout the flight segment.
+The lower prevents accelarating too slowly, while the upper limits motion
 in the advisory's direction. (see Eq. (5))
 -/
 def domainTwoSided (alo aup a : ℝ) (advisory : TwoSidedAdvisory) : ℝ × ℝ × ℝ → Prop
-  | (_r, _h, v) => advisory.lowerAdvisory.AllowsLo v a alo ∧
-                     advisory.upperAdvisory.AllowsUp v a aup
+  | (_r, _h, v) => advisory.lowerAdvisory.IsSatisfiedLo v a alo ∧
+                     advisory.upperAdvisory.IsSatisfiedUp v a aup
 
 /--
 The result of a two-sided-response run.
@@ -438,7 +440,7 @@ def TimeHorizon.includes : TimeHorizon → ℝ → ℝ → Prop
   | .bounded duration, t, tn => tn ≤ duration.val - t
 
 /--
-Holds when the intruder lies in the advisory's lower safe region for the remaining
+Holds when the encounter lies in the lower safe region of the advisory for the remaining
 horizon.
 -/
 @[reducible]
@@ -449,7 +451,7 @@ def Advisory.LoSafeForWithin (advisory : Advisory) (encounter : Encounter)
       AircraftSeparatedLo advisory encounter rp hp rv tn hn
 
 /--
-Holds when the intruder lies in the advisory's upper safe region for the remaining
+Holds when the encounter lies in the upper safe region of the advisory for the remaining
 horizon.
 -/
 @[reducible]
@@ -484,13 +486,13 @@ def motionClockedODE (rv a : ℝ) : (ℝ × ℝ × ℝ × ℝ) → (ℝ × ℝ �
 
 /--
 The evolution requires the advisory's clock to stay within `limit` and both
-`AllowsLo` and `AllowsUp` to hold throughout the flight segment. An unlimited
-horizon removes only the clock bound. (see Eq. (8))
+advisories are followed throughout the flight segment. (see Eq. (8))
 -/
 def domainClocked (alo aup : ℝ) (limit : TimeHorizon) (a : ℝ)
     (advisory : TwoSidedAdvisory) : ℝ × ℝ × ℝ × ℝ → Prop
   | (_r, _h, v, t) => limit.includes 0 t ∧
-    advisory.lowerAdvisory.AllowsLo v a alo ∧ advisory.upperAdvisory.AllowsUp v a aup
+    advisory.lowerAdvisory.IsSatisfiedLo v a alo ∧
+    advisory.upperAdvisory.IsSatisfiedUp v a aup
 
 /--
 The result of a clocked run, extending `TwoSidedResult` with the advisory's clock.
@@ -532,7 +534,7 @@ def clockedResponseProg (rv alo aup : ℝ) (limit : TimeHorizon)
 Program for advisory selection and flight with bounded-time safety.
 Uses `clockedResponseProg` with `SafeForWithin` as the advisory-acceptance condition.
 A finite horizon limits each advisory's flight time; it does not guarantee that a
-safe next advisory can be selected when that horizon ends. (see Eq. (8) and Theorem 4)
+safe next advisory can be selected when that horizon ends. (see Eq. (8))
 
 See `ACASX.bounded_safe` in `CPSLib.Examples.ACASX.Challenge` for its safety claim.
 -/
@@ -570,8 +572,8 @@ intruder above.
 
 If either branch provides bounded-time safety and a safe follow-up, the encounter
 lies in the safeable region. The ownship can then switch to an appropriate advisory
-at the horizon instead of being left without a safe continuation. The horizon is
-finite and nonnegative. (see Section 5.3 and Figs. 11–12)
+at the horizon instead of being left without a safe continuation.
+(see Section 5.3 and Figs. 11–12)
 -/
 
 /--
