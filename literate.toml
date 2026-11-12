@@ -5,7 +5,6 @@ extra_js = ["docs/literate-labels.js"]
 
 [metadata]
 title = "CPSLib Case Studies"
-description = "Hybrid-system models and their safety specifications"
 
 # Keep Verso's light palette even when the browser prefers dark mode.
 [theme]
